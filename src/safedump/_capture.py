@@ -115,6 +115,7 @@ def _capture_frame(frame: Any, lineno: int, index: int, config: SafedumpConfig) 
             first_line = frame.f_code.co_firstlineno
             try:
                 import linecache
+
                 for i in range(lineno - 3, lineno + 2):
                     if i >= first_line:
                         line = linecache.getline(fname, i)

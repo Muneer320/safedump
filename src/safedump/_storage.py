@@ -73,9 +73,7 @@ def _write_atomic(output_dir: Path, filename: str, content: str) -> Path | None:
     """
     try:
         # Write to temp file in the same directory
-        fd, tmp_path = tempfile.mkstemp(
-            suffix=".tmp", prefix=".", dir=str(output_dir)
-        )
+        fd, tmp_path = tempfile.mkstemp(suffix=".tmp", prefix=".", dir=str(output_dir))
         try:
             os.write(fd, content.encode("utf-8"))
         finally:
