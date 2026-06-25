@@ -96,7 +96,7 @@ class TestSerialize:
         config = SafedumpConfig()
         result = serialize(report, config)
         parsed = json.loads(result)
-        assert parsed["safedump_version"] == "0.1.0.dev0"
+        assert parsed["safedump_version"] == "0.1.0"
         assert "frames" in parsed
         assert "exception" in parsed
 
