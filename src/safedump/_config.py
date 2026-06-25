@@ -21,6 +21,7 @@ _original_config: SafedumpConfig | None = None  # saved for uninstall
 
 def configure(
     *,
+    preset: str | None = None,
     output_dir: str | Path = "~/.safedump",
     privacy_tier: int = 1,
     include_env_names: bool = True,
@@ -39,6 +40,16 @@ def configure(
 
     Call before :func:`safedump.install`.
     """
+    # Apply preset if specified
+    if preset is not None:
+        if preset not in PRESETS:
+            raise ValueError(f"Unknown preset: '{preset}'. Available: {', '.join(sorted(PRESETS))}")
+        p = PRESETS[preset]
+        privacy_tier = p["privacy_tier"]
+        include_env_names = p["include_env_names"]
+        include_argv = p["include_argv"]
+        max_depth = p["max_depth"]
+
     # Auto-convert string rules to RedactionRule objects
     resolved_rules: list[RedactionRule] = []
     if redaction_rules:
@@ -108,3 +119,31 @@ def restore_original_config() -> None:
     global _active_config
     if _original_config is not None:
         _active_config = _original_config
+
+
+PRESETS = {
+    "production": {
+        "privacy_tier": 1,
+        "include_env_names": False,
+        "include_argv": False,
+        "max_depth": 5,
+    },
+    "development": {
+        "privacy_tier": 2,
+        "include_env_names": True,
+        "include_argv": False,
+        "max_depth": 10,
+    },
+    "debug": {
+        "privacy_tier": 4,
+        "include_env_names": True,
+        "include_argv": True,
+        "max_depth": 50,
+    },
+    "minimal": {
+        "privacy_tier": 0,
+        "include_env_names": False,
+        "include_argv": False,
+        "max_depth": 3,
+    },
+}
