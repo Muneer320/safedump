@@ -55,6 +55,7 @@ from safedump._types import RedactionRule
 
 def configure(
     *,
+    preset: str | None = None,
     output_dir: str | Path = "~/.safedump",
     privacy_tier: int = 1,
     include_env_names: bool = True,

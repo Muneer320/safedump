@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from safedump._loader import find_latest, list_reports, load_report
+from safedump._loader import clean_older_than, find_latest, list_reports, load_report
 from safedump._render import render
 
 
@@ -22,7 +22,7 @@ def main() -> None:
         prog="safedump",
         description="Local-first crash diagnostics for Python.",
     )
-    parser.add_argument("--version", action="version", version="safedump 0.1.0.dev0")
+    parser.add_argument("--version", action="version", version="safedump 0.1.0")
     subparsers = parser.add_subparsers(dest="command", title="commands")
 
     # safedump view
@@ -32,6 +32,16 @@ def main() -> None:
     # safedump list
     list_parser = subparsers.add_parser("list", help="List recent crash reports")
     list_parser.add_argument("--count", type=int, default=20, help="Number of reports to show")
+
+    # safedump clean
+    clean_parser = subparsers.add_parser("clean", help="Delete old crash reports")
+    clean_parser.add_argument(
+        "--older-than",
+        type=int,
+        default=30,
+        metavar="DAYS",
+        help="Delete reports older than DAYS (default: 30)",
+    )
 
     # safedump test
     subparsers.add_parser("test", help="Self-test — verify safedump is working")
@@ -46,6 +56,8 @@ def main() -> None:
         _cmd_view(args.file)
     elif args.command == "list":
         _cmd_list(args.count)
+    elif args.command == "clean":
+        _cmd_clean(args.older_than)
     elif args.command == "test":
         _cmd_test()
 
@@ -95,6 +107,14 @@ def _cmd_list(count: int) -> None:
             print(f"  {i}. {ts}  {exc_type}  {path}")
         except Exception:
             print(f"  {i}. (unreadable)  {path}")
+
+
+def _cmd_clean(days: int) -> None:
+    """Handle the 'clean' subcommand."""
+    from safedump._config import get_config
+
+    deleted = clean_older_than(get_config().output_dir, days)
+    print(f"Deleted {deleted} crash report(s) older than {days} day(s).")
 
 
 def _cmd_test() -> None:

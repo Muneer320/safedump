@@ -7,6 +7,7 @@ Runs in the cold path — can fail safely.
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -79,3 +80,29 @@ def list_reports(output_dir: str | Path, count: int = 20) -> list[Path]:
         reverse=True,
     )
     return reports[:count]
+
+
+def clean_older_than(output_dir: str | Path, days: int) -> int:
+    """Delete crash reports older than ``days`` days.
+
+    Args:
+        output_dir: Directory to clean.
+        days: Delete reports older than this many days.
+
+    Returns:
+        Number of reports deleted.
+    """
+    directory = Path(output_dir).expanduser()
+    if not directory.exists():
+        return 0
+
+    cutoff = time.time() - (days * 86400)
+    deleted = 0
+    for report in directory.glob("*.safedump.json"):
+        try:
+            if report.stat().st_mtime < cutoff:
+                report.unlink()
+                deleted += 1
+        except OSError:
+            pass
+    return deleted
