@@ -42,3 +42,5 @@ Thumbs.db
 
 # Safedump output (for development)
 .safedump/
+dist/
+.mypy_cache/

@@ -1,53 +1,50 @@
 # Roadmap
 
-## v0.1.0 — Core Capture & Viewing *(in development)*
+## v1.0.0 — Stable API ✅ (Current)
 
-- [ ] `safedump.install()` / `uninstall()` — crash hook management
-- [ ] `safedump.capture_exception()` — manual capture for try/except blocks
-- [ ] `safedump.configure()` — configuration with privacy tiers
-- [ ] `safedump.test()` — self-test verification
-- [ ] `safedump view` — Rich-powered terminal crash report viewer
-- [ ] `safedump list` — list recent crash reports
-- [ ] Secret redaction — variable name denylist + regex patterns
-- [ ] JSON report format with versioned schema
-- [ ] Python 3.9–3.13 support
-- [ ] Atomic file writes with 0600 permissions
+- [x] Core crash capture + frame walking (Python 3.9–3.13)
+- [x] Secret redaction (denylist + regex + custom rules)
+- [x] Rich terminal viewer (`safedump view`)
+- [x] CLI tools (`view`, `list`, `clean`, `test`)
+- [x] Plugin architecture (`register_serializer`)
+- [x] Config presets (`production`, `development`, `debug`, `minimal`)
+- [x] Privacy tiers (0–4)
+- [x] Cross-thread capture
+- [x] `before_capture` hook
+- [x] 67 tests, CI matrix 3.9–3.13
+- [x] Stable API freeze — semver enforced
 
-## v0.2.0 — Shareability
+## v1.1 — Shareability
 
-- [ ] HTML report export (with XSS protection)
+- [ ] HTML crash report export
 - [ ] `safedump serve` — local web viewer
-- [ ] Improved redaction with entropy detection
-- [ ] `safedump clean --older-than` — report cleanup
-- [ ] Environment variable name capture
-- [ ] Windows production-quality support
-- [ ] Configuration presets (`preset="production"`)
+- [ ] Entropy-based secret detection (optional plugin)
+- [ ] Report HMAC signing
+- [ ] `safedump info` — display current configuration
+- [ ] Windows first-class support
+
+## v1.2 — Developer Experience
+
 - [ ] `logging` module integration
+- [ ] Context manager API (`with safedump.watch():`)
+- [ ] Framework documentation (Flask, FastAPI, Django)
+- [ ] Crash deduplication
+- [ ] Performance improvements (pre-compiled regex)
 
-## v0.3.0 — Ecosystem
+## v1.3 — Ecosystem
 
-- [ ] Plugin architecture (`register_serializer`, `register_redactor`)
 - [ ] `safedump-numpy` — NumPy array support
 - [ ] `safedump-pandas` — DataFrame support
 - [ ] `safedump-pydantic` — Pydantic model support
-- [ ] Community plugin contributions begin
+- [ ] Community plugin contributions
 
-## v0.5.0 — Production
+## v2.0 — Maturity
 
-- [ ] Framework documentation (Flask, FastAPI, Django)
-- [ ] `sys.monitoring` support (Python 3.12+)
-- [ ] Cross-thread stack capture
-- [ ] Report HMAC signing
-- [ ] Crash deduplication
-
-## v1.0.0 — Stability
-
-- [ ] Stable public API freeze
-- [ ] Deprecation policy enforcement
-- [ ] Complete documentation
 - [ ] Plugin API freeze
-- [ ] Semantic versioning from this point forward
+- [ ] Internationalization
+- [ ] Hosted documentation site
+- [ ] Commercial support options (if community demand exists)
 
-## v2.0.0+ — Future (Undefined)
+## Long-Term Vision
 
-Framework integrations and broader ecosystem features will be reconsidered based on community feedback and maintainer capacity.
+Safedump aims to become the default local crash recorder for Python — the tool developers reach for before `print()` debugging, before SSHing into servers, and before asking users "what were the variable values?"
