@@ -31,22 +31,10 @@ __all__ = [
 ]
 
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, Callable
 
-
-class RedactionRule(NamedTuple):
-    """A custom secret redaction rule.
-
-    Args:
-        pattern: Regex pattern to match.
-        replacement: Text to replace matches with. Defaults to ``[REDACTED]``.
-        apply_to: Where to apply the rule — ``"values"``, ``"names"``, or ``"both"``.
-    """
-
-    pattern: str
-    replacement: str = "[REDACTED]"
-    apply_to: str = "values"
-
+from safedump._config import configure as _configure
+from safedump._types import RedactionRule
 
 # All public functions are placeholders — implementation begins in M1.
 # They exist so the package imports successfully and IDEs show completions.
@@ -62,13 +50,23 @@ def configure(
     max_collection_items: int = 100,
     max_depth: int = 5,
     redaction_rules: list[str | RedactionRule] | None = None,
-    before_capture: Any = None,
+    before_capture: Callable[[Any], Any | None] | None = None,
 ) -> None:
     """Configure Safedump globally. Call before :func:`install`.
 
     All parameters are keyword-only. Validates eagerly.
     """
-    raise NotImplementedError("safedump is not yet implemented")
+    _configure(
+        output_dir=output_dir,
+        privacy_tier=privacy_tier,
+        include_env_names=include_env_names,
+        include_argv=include_argv,
+        max_string_length=max_string_length,
+        max_collection_items=max_collection_items,
+        max_depth=max_depth,
+        redaction_rules=redaction_rules,
+        before_capture=before_capture,
+    )
 
 
 def install() -> None:
