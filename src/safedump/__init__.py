@@ -26,6 +26,7 @@ __all__ = [
     "enable",
     "install",
     "load_report",
+    "register_serializer",
     "test",
     "uninstall",
 ]
@@ -47,6 +48,7 @@ from safedump._capture import (
 )
 from safedump._config import configure as _configure
 from safedump._loader import load_report as _load_report
+from safedump._serialize import register_serializer as _register_serializer
 from safedump._types import RedactionRule
 
 # All public functions are placeholders — implementation begins in M1.
@@ -145,3 +147,18 @@ def test() -> Path | None:
 def load_report(path: str | Path) -> dict[str, Any]:
     """Load a Safedump crash report as a Python dict."""
     return _load_report(path)
+
+
+def register_serializer(type_: type, handler: Any) -> None:
+    """Register a custom serializer for a Python type.
+
+    Args:
+        type_: The Python type to handle (e.g., ``numpy.ndarray``).
+        handler: A callable that takes an instance of ``type_``
+                 and returns a JSON-serializable value.
+
+    Example:
+        >>> import numpy as np
+        >>> safedump.register_serializer(np.ndarray, lambda a: a.tolist())
+    """
+    _register_serializer(type_, handler)

@@ -21,6 +21,25 @@ from safedump._types import CrashReport, SafedumpConfig
 # Sentinel for depth limit
 DEPTH_LIMIT_SENTINEL = object()
 
+# Plugin registry for custom type serializers
+# Maps type -> callable that returns a JSON-serializable value
+_serializer_registry: dict[type, Any] = {}
+
+
+def register_serializer(type_: type, handler: Any) -> None:
+    """Register a custom serializer for a type.
+
+    Args:
+        type_: The Python type to handle.
+        handler: A callable that takes an instance of ``type_``
+                 and returns a JSON-serializable value.
+
+    Example:
+        >>> import numpy as np
+        >>> safedump.register_serializer(np.ndarray, lambda a: a.tolist())
+    """
+    _serializer_registry[type_] = handler
+
 
 class SafedumpEncoder(json.JSONEncoder):
     """Custom JSON encoder for Safedump crash reports.
@@ -57,6 +76,14 @@ class SafedumpEncoder(json.JSONEncoder):
 
     def _encode(self, obj: Any) -> Any:
         """Type-specific encoding dispatch."""
+        # Check plugin registry first
+        obj_type = type(obj)
+        if obj_type in _serializer_registry:
+            try:
+                return _serializer_registry[obj_type](obj)
+            except Exception:
+                return {"__serialization_error__": obj_type.__name__}
+
         # Primitives — handled by base encoder
         if isinstance(obj, (str, int, float, bool, type(None))):
             return obj
