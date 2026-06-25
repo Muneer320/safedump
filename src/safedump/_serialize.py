@@ -120,9 +120,8 @@ class SafedumpEncoder(json.JSONEncoder):
     def _truncate_dict(self, d: dict[str, Any]) -> dict[str, Any]:
         """Truncate dict values, respecting string length limits."""
         result: dict[str, Any] = {}
-        count = 0
         limit = self._config.max_collection_items
-        for key, value in d.items():
+        for count, (key, value) in enumerate(d.items()):
             if count >= limit:
                 result["__truncated__"] = f"... ({len(d) - limit} more keys)"
                 break
