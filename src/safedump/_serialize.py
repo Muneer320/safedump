@@ -129,7 +129,6 @@ class SafedumpEncoder(json.JSONEncoder):
             if isinstance(value, str) and len(value) > self._config.max_string_length:
                 value = value[: self._config.max_string_length] + "..."
             result[key] = value
-            count += 1
         return result
 
     def _encode_dataclass(self, obj: Any) -> dict[str, Any]:
@@ -195,9 +194,7 @@ def _serialize_exception(exc: Any) -> dict[str, Any]:
         "message": getattr(exc, "message", ""),
         "module": getattr(exc, "module", ""),
         "is_explicitly_chained": getattr(exc, "is_explicitly_chained", False),
-        "sub_exceptions": [
-            _serialize_exception(sub) for sub in getattr(exc, "sub_exceptions", [])
-        ],
+        "sub_exceptions": [_serialize_exception(sub) for sub in getattr(exc, "sub_exceptions", [])],
     }
 
 

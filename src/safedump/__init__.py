@@ -46,6 +46,7 @@ from safedump._capture import (
     uninstall as _uninstall,
 )
 from safedump._config import configure as _configure
+from safedump._loader import load_report as _load_report
 from safedump._types import RedactionRule
 
 # All public functions are placeholders — implementation begins in M1.
@@ -141,14 +142,5 @@ def test() -> Path | None:
 
 
 def load_report(path: str | Path) -> dict[str, Any]:
-    """Load a Safedump crash report as a Python dict.
-
-    Returns:
-        Parsed report with all fields. Schema is versioned —
-        check ``report["safedump_version"]``.
-
-    Raises:
-        FileNotFoundError: If *path* does not exist.
-        ValueError: If file is not valid Safedump JSON.
-    """
-    raise NotImplementedError("safedump is not yet implemented")
+    """Load a Safedump crash report as a Python dict."""
+    return _load_report(path)
