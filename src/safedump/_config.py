@@ -45,10 +45,10 @@ def configure(
         if preset not in PRESETS:
             raise ValueError(f"Unknown preset: '{preset}'. Available: {', '.join(sorted(PRESETS))}")
         p = PRESETS[preset]
-        privacy_tier = p["privacy_tier"]
-        include_env_names = p["include_env_names"]
-        include_argv = p["include_argv"]
-        max_depth = p["max_depth"]
+        privacy_tier = int(p["privacy_tier"])
+        include_env_names = bool(p["include_env_names"])
+        include_argv = bool(p["include_argv"])
+        max_depth = int(p["max_depth"])
 
     # Auto-convert string rules to RedactionRule objects
     resolved_rules: list[RedactionRule] = []

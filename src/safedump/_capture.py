@@ -148,9 +148,9 @@ def _capture_exception_chain(exc_value: BaseException) -> ExceptionSnapshot:
     )
 
     # Handle ExceptionGroup (Python 3.11+)
-    if hasattr(exc_value, "exceptions"):
-        for sub in exc_value.exceptions:  # type: ignore[attr-defined]
-            snap.sub_exceptions.append(_capture_exception_chain(sub))
+    sub_exceptions = getattr(exc_value, "exceptions", ())
+    for sub in sub_exceptions:
+        snap.sub_exceptions.append(_capture_exception_chain(sub))
 
     # Walk __cause__ chain
     if exc_value.__cause__ is not None and exc_value.__cause__ is not exc_value:
@@ -309,9 +309,9 @@ def uninstall() -> None:
     if _original_excepthook is not None:
         sys.excepthook = _original_excepthook
     if _original_threading_excepthook is not None:
-        threading.excepthook = _original_threading_excepthook  # type: ignore[assignment]
+        threading.excepthook = _original_threading_excepthook
     if _original_unraisablehook is not None:
-        sys.unraisablehook = _original_unraisablehook  # type: ignore[assignment]
+        sys.unraisablehook = _original_unraisablehook
 
     _installed = False
     print("Safedump uninstalled.", file=sys.stderr)
