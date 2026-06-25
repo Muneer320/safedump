@@ -10,7 +10,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, NamedTuple
 
 # ── Version ──────────────────────────────────────────────────────────
 
@@ -19,9 +19,14 @@ __version__ = "0.1.0.dev0"
 # ── Configuration ────────────────────────────────────────────────────
 
 
-@dataclass
-class RedactionRule:
-    """A custom secret redaction rule (internal representation)."""
+class RedactionRule(NamedTuple):
+    """A custom secret redaction rule (internal representation).
+
+    Args:
+        pattern: Regex pattern to match.
+        replacement: Text to replace matches with. Defaults to ``[REDACTED]``.
+        apply_to: Where to apply the rule — ``"values"``, ``"names"``, or ``"both"``.
+    """
 
     pattern: str
     replacement: str = "[REDACTED]"
