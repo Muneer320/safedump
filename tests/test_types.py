@@ -67,7 +67,7 @@ class TestDenylist:
 class TestCrashReport:
     def test_default_construction(self):
         report = CrashReport()
-        assert report.safedump_version == "0.1.0.dev0"
+        assert report.safedump_version == "0.1.0"
         assert len(report.frames) == 0
         assert len(report.redactions) == 0
 
