@@ -185,15 +185,20 @@ def _capture_environment(config: SafedumpConfig) -> EnvironmentSnapshot:
 
 
 def _capture_threads() -> list[ThreadSnapshot]:
-    """Capture thread information."""
+    """Capture all thread information."""
     current = threading.current_thread()
-    main = ThreadSnapshot(
-        name=current.name,
-        ident=current.ident,
-        daemon=current.daemon,
-        crashed=True,
-    )
-    return [main]
+    threads = []
+    for t in threading.enumerate():
+        snap = ThreadSnapshot(
+            name=t.name,
+            ident=t.ident,
+            daemon=t.daemon,
+            crashed=(t is current),
+        )
+        threads.append(snap)
+    # Put crashing thread first
+    threads.sort(key=lambda t: not t.crashed)
+    return threads
 
 
 def crash_handler(

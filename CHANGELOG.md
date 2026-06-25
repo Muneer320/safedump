@@ -1,10 +1,15 @@
 # Changelog
 
-All notable changes to Safedump will be documented in this file.
-
-## [0.1.0] — 2026-06-25
+## [1.0.0] — 2026-06-25
 
 ### Added
+- **Stable public API** — 11 functions frozen: `configure`, `install`, `uninstall`,
+  `capture_exception`, `test`, `load_report`, `register_serializer`, `enable`,
+  `disable`, `RedactionRule`, `__version__`
+- **Plugin architecture** — `register_serializer()` for custom type serialization
+- **Cross-thread capture** — all threads captured at crash time
+- **Config presets** — `configure(preset="production")` shorthand
+- **`safedump clean --older-than DAYS`** — report rotation
 - Core crash capture with frame walking (Python 3.9–3.13)
 - Local variable capture with type information
 - Exception chaining support (__cause__, __context__, ExceptionGroup)
@@ -13,22 +18,18 @@ All notable changes to Safedump will be documented in this file.
 - `before_capture` hook for application-specific scrubbing
 - Versioned JSON crash report format
 - Atomic file writes with 0o600 permissions
-- /tmp fallback when primary output_dir is unwritable
 - Rich-powered terminal viewer (`safedump view`)
 - Crash report listing (`safedump list`)
 - Self-test (`safedump test`)
-- Configuration with eager validation
 - Privacy tiers (0–4) with configurable capture levels
-- Environment variable name capture
-- Thread information capture
-- Pre-allocated fallback buffer for MemoryError scenarios
 - Double-fault guard — original traceback always preserved
-- Public API: `configure`, `install`, `uninstall`, `enable`, `disable`,
-  `capture_exception`, `test`, `load_report`, `RedactionRule`
 - 67 tests (unit + integration)
 - CI/CD workflows (lint, type-check, test matrix 3.9–3.13, build)
 
-## [0.0.0] — 2026-06-25
+### Changed
+- **API stability guarantee** — semver enforced from v1.0.0 onward
+- **Deprecation policy** — 2 minor versions of DeprecationWarning before removal
 
-### Added
-- Repository bootstrap and project infrastructure
+## [0.1.0] — 2026-06-25
+
+Initial release.
