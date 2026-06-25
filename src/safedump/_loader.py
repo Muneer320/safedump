@@ -31,7 +31,7 @@ def load_report(path: str | Path) -> dict[str, Any]:
         raise FileNotFoundError(f"Crash report not found: {filepath}")
 
     with open(filepath, encoding="utf-8") as f:
-        data = json.load(f)
+        data: dict[str, Any] = json.load(f)
 
     if "safedump_version" not in data:
         raise ValueError(f"Not a valid safedump report (missing safedump_version): {filepath}")
