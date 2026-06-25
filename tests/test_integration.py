@@ -1,5 +1,7 @@
 """Integration tests — real subprocess crashes."""
 
+from __future__ import annotations
+
 import json
 import subprocess
 import sys
