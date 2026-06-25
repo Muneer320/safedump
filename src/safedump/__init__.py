@@ -33,6 +33,18 @@ __all__ = [
 from pathlib import Path
 from typing import Any, Callable
 
+from safedump._capture import (
+    capture_exception as _capture_exception,
+)
+from safedump._capture import (
+    install as _install,
+)
+from safedump._capture import (
+    test as _test,
+)
+from safedump._capture import (
+    uninstall as _uninstall,
+)
 from safedump._config import configure as _configure
 from safedump._types import RedactionRule
 
@@ -75,12 +87,12 @@ def install() -> None:
     Replaces ``sys.excepthook``, ``threading.excepthook``, and
     ``sys.unraisablehook``.  Uses current configuration.
     """
-    raise NotImplementedError("safedump is not yet implemented")
+    _install()
 
 
 def uninstall() -> None:
     """Restore original Python exception hooks."""
-    raise NotImplementedError("safedump is not yet implemented")
+    _uninstall()
 
 
 def enable() -> None:
@@ -98,7 +110,7 @@ def capture_exception(
     *,
     privacy_tier: int | None = None,
     output_dir: str | Path | None = None,
-) -> Path:
+) -> Path | None:
     """Capture an exception and write a crash report.
 
     If *exc* is ``None``, captures ``sys.exc_info()`` — the currently
@@ -107,10 +119,14 @@ def capture_exception(
     Returns:
         Path to the written crash report file.
     """
-    raise NotImplementedError("safedump is not yet implemented")
+    return _capture_exception(
+        exc=exc,
+        privacy_tier=privacy_tier,
+        output_dir=output_dir,
+    )
 
 
-def test() -> Path:
+def test() -> Path | None:
     """Self-test — verify Safedump is working correctly.
 
     Deliberately raises and captures a test exception.
@@ -121,7 +137,7 @@ def test() -> Path:
     Raises:
         RuntimeError: If Safedump is not installed.
     """
-    raise NotImplementedError("safedump is not yet implemented")
+    return _test()
 
 
 def load_report(path: str | Path) -> dict[str, Any]:

@@ -1,11 +1,10 @@
 """Tests for the Safedump storage module."""
 
 import json
-import os
 from pathlib import Path
 
 from safedump._config import SafedumpConfig
-from safedump._storage import generate_filename, _sanitize_filename_component, save
+from safedump._storage import _sanitize_filename_component, generate_filename, save
 from safedump._types import CrashReport, ExceptionSnapshot
 
 
