@@ -1,8 +1,12 @@
 # Safedump
 
 <p align="center">
-  <strong>Local-first crash diagnostics for Python.</strong><br>
-  Capture full debugging context. Redact secrets automatically. Inspect crashes offline.
+  <img src="assets/social-preview.png" alt="Safedump terminal output" width="800">
+</p>
+
+<p align="center">
+  <strong>Debug crashes without reproducing them.</strong><br>
+  <em>Local-first crash reports with automatic secret redaction.</em>
 </p>
 
 <p align="center">
@@ -89,17 +93,25 @@ $ safedump view
 │ ZeroDivisionError: division by zero                                          │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭──────────────────────────────────────────────────────────────────────────────╮
-│ main.py:42 in calculate                                                      │
+│ app.py:13 in <module>                                                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+┏━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Variable  ┃ Type     ┃ Value                          ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ safedump  │ module   │ <module 'safedump'>            │
+│ calculate │ function │ <function calculate at 0x...>  │
+└───────────┴──────────┴────────────────────────────────┘
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ app.py:10 in calculate                                                       │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ┏━━━━━━━━━━┳━━━━━━┳━━━━━━━┓
 ┃ Variable ┃ Type ┃ Value ┃
 ┡━━━━━━━━━━╇━━━━━━╇━━━━━━━┩
-│ x        │ int  │ 42    │
-│ y        │ int  │ 0     │
-│ data     │ dict │ {...} │
+│ orders   │ list │ []    │
+│ total    │ int  │ 0     │
 └──────────┴──────┴───────┘
 ╭─────────────────────────────── Environment ────────────────────────────────╮
-│ OS: linux | Python: 3.12.4 | Platform: linux | CWD: /app                   │
+│ OS: posix | Python: 3.11 | Platform: linux | CWD: /app                     │
 ╰─────────────────────────────────────────────────────────────────────────────╯
 ```
 
