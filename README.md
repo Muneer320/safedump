@@ -66,14 +66,16 @@ $ safedump view
 
 ### Installation
 
-```bash
-pip install safedump
-```
-
-For the terminal viewer:
+For the full experience (terminal viewer):
 
 ```bash
 pip install safedump[view]
+```
+
+Minimal install (no dependencies):
+
+```bash
+pip install safedump
 ```
 
 ### One-line setup
