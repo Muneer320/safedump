@@ -1,6 +1,7 @@
 """Tests for the Safedump serialization module."""
 
 import json
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
@@ -145,3 +146,76 @@ class TestSerialize:
         # Normal serialization should work
         result = serialize(report, config)
         assert "safedump_version" in result
+
+
+class TestSafedumpEncoderEdgeCases:
+    """Edge cases that must never break the crash-time serializer.
+
+    The encoder runs in the crash hot path and must never raise — every
+    pathological object should degrade to a safe marker instead.
+    """
+
+    @staticmethod
+    def _encoder() -> SafedumpEncoder:
+        return SafedumpEncoder(SafedumpConfig())
+
+    def test_circular_reference_is_detected_and_marked(self):
+        @dataclass
+        class Recursive:
+            name: str
+            child: object = None
+
+        node = Recursive("root")
+        node.child = node  # self-referential cycle
+
+        # Must terminate (no infinite recursion) and produce valid JSON.
+        result = self._encoder().encode(node)
+        parsed = json.loads(result)
+        assert parsed["__type__"] == "Recursive"
+        assert parsed["child"] == {"__circular_ref__": id(node)}
+
+    def test_object_with_repr_that_raises_is_handled(self):
+        class Exploding:
+            def __repr__(self):
+                raise RuntimeError("boom")
+
+            def __str__(self):
+                raise RuntimeError("boom")
+
+        # str() failure must fall back to a safe type marker, not raise.
+        result = self._encoder().default(Exploding())
+        assert result == "<Exploding>"
+
+    def test_object_with_non_string_str_is_handled(self):
+        class NonStringStr:
+            def __str__(self):
+                return 12345  # invalid: __str__ must return a str
+
+        # str() raises TypeError internally; the encoder must absorb it.
+        result = self._encoder().default(NonStringStr())
+        assert result == "<NonStringStr>"
+
+    def test_slots_object_without_dict_serializes(self):
+        class Slotted:
+            __slots__ = ("x", "y")
+
+            def __init__(self):
+                self.x = 1
+                self.y = 2
+
+            def __str__(self):
+                return "Slotted(x=1, y=2)"
+
+        obj = Slotted()
+        assert not hasattr(obj, "__dict__")  # truly slots-only
+        result = self._encoder().default(obj)
+        assert result == "Slotted(x=1, y=2)"
+
+    def test_none_value_is_preserved(self):
+        assert self._encoder().default(None) is None
+
+    def test_unicode_keys_and_values_are_preserved(self):
+        data = {"café": "naïve", "日本語": "テスト"}
+        # Exercise the full encode/decode round-trip, not just default().
+        result = self._encoder().encode(data)
+        assert json.loads(result) == data
