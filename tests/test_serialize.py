@@ -216,5 +216,6 @@ class TestSafedumpEncoderEdgeCases:
 
     def test_unicode_keys_and_values_are_preserved(self):
         data = {"café": "naïve", "日本語": "テスト"}
-        result = self._encoder().default(data)
-        assert result == data
+        # Exercise the full encode/decode round-trip, not just default().
+        result = self._encoder().encode(data)
+        assert json.loads(result) == data
