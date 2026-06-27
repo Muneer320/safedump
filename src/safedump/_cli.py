@@ -1,7 +1,7 @@
 """CLI entry point for Safedump.
 
 Usage:
-    safedump view [FILE]    View a crash report
+    safedump view [--json] [FILE]    View a crash report
     safedump list           List recent crashes
     safedump test            Self-test
     safedump --version       Show version
@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
 from safedump._loader import clean_older_than, find_latest, list_reports, load_report
@@ -28,6 +29,11 @@ def main() -> None:
     # safedump view
     view_parser = subparsers.add_parser("view", help="View a crash report")
     view_parser.add_argument("file", nargs="?", help="Crash report file (default: latest)")
+    view_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print raw JSON instead of Rich-formatted output",
+    )
 
     # safedump list
     list_parser = subparsers.add_parser("list", help="List recent crash reports")
@@ -53,7 +59,7 @@ def main() -> None:
         sys.exit(1)
 
     if args.command == "view":
-        _cmd_view(args.file)
+        _cmd_view(args.file, as_json=args.json)
     elif args.command == "list":
         _cmd_list(args.count)
     elif args.command == "clean":
@@ -62,7 +68,7 @@ def main() -> None:
         _cmd_test()
 
 
-def _cmd_view(file: str | None) -> None:
+def _cmd_view(file: str | None, *, as_json: bool = False) -> None:
     """Handle the 'view' subcommand."""
     try:
         if file:
@@ -76,9 +82,13 @@ def _cmd_view(file: str | None) -> None:
                 print("No crash reports found.", file=sys.stderr)
                 sys.exit(1)
             report = load_report(latest)
-            print(f"Viewing: {latest}")
+            if not as_json:
+                print(f"Viewing: {latest}")
 
-        render(report)
+        if as_json:
+            print(json.dumps(report, indent=2))
+        else:
+            render(report)
 
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
