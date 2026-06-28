@@ -168,6 +168,7 @@ safedump.configure(
 ```bash
 safedump view                    # View latest crash report
 safedump view crash.json         # View specific report
+safedump view --json             # View as raw JSON (pipe to jq)
 safedump list                    # List recent crashes
 safedump list --count 10         # Last 10 crashes
 safedump clean --older-than 30   # Delete reports older than 30 days
@@ -213,6 +214,8 @@ See [ROADMAP.md](ROADMAP.md) for details.
 ## Contributing
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+
+**Looking for a place to start?** Check out [good first issues](https://github.com/Muneer320/safedump/labels/good%20first%20issue).
 
 ## License
 
