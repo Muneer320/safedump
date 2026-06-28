@@ -6,6 +6,7 @@ Runs in the cold path — can fail safely.
 
 from __future__ import annotations
 
+import sys
 from typing import Any
 
 
@@ -31,11 +32,17 @@ def render(report: dict[str, Any], *, color: bool = True) -> None:
         report: Loaded crash report dict.
         color: Whether to use ANSI colors.
 
-    If Rich is not installed, falls back to plain-text output.
+    If Rich is not installed, prints a friendly install hint and falls back
+    to plain-text output via :func:`_render_plain`.
     """
     rich = _get_rich()
 
     if rich is None:
+        print(
+            "Rich is not installed — install it for formatted output:\n"
+            '    pip install "safedump[view]"',
+            file=sys.stderr,
+        )
         _render_plain(report)
         return
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- **`safedump view` without Rich now shows a friendly install hint** instead of an
+  unfriendly traceback. When Rich is not installed, `render()` prints
+  `Rich is not installed — install it for formatted output: pip install "safedump[view]"`
+  to stderr and falls back to plain-text output. Fixes [#9](https://github.com/Muneer320/safedump/issues/9).
+
 ## [1.0.0] — 2026-06-25
 
 ### Added
