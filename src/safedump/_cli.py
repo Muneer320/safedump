@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from importlib.metadata import version, PackageNotFoundError
 
 from safedump._loader import clean_older_than, find_latest, list_reports, load_report
 from safedump._render import render
@@ -23,7 +24,11 @@ def main() -> None:
         prog="safedump",
         description="Local-first crash diagnostics for Python.",
     )
-    parser.add_argument("--version", action="version", version="safedump 0.1.0")
+    try:
+      __version__ = version("safedump")
+    except PackageNotFoundError:
+      __version__ = "0.0.0+dev"
+    parser.add_argument("--version", action="version", version=f"safedump {__version__}")
     subparsers = parser.add_subparsers(dest="command", title="commands")
 
     # safedump view
