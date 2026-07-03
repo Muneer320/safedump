@@ -1,7 +1,7 @@
 # Safedump
 
 <p align="center">
-  <img src="assets/social-preview.png" alt="Safedump terminal output" width="800">
+  <img src="assets/safedump-demo.gif" alt="Safedump terminal output" width="800">
 </p>
 
 <p align="center">
