@@ -7,29 +7,31 @@
   `capture_exception`, `test`, `load_report`, `register_serializer`, `enable`,
   `disable`, `RedactionRule`, `__version__`
 - **Plugin architecture** — `register_serializer()` for custom type serialization
-- **Cross-thread capture** — all threads captured at crash time
-- **Config presets** — `configure(preset="production")` shorthand
+- **Cross-thread capture** — all threads captured at crash time via `threading.enumerate()`
+- **Config presets** — `configure(preset="production")`, `"development"`, `"debug"`, `"minimal"`
 - **`safedump clean --older-than DAYS`** — report rotation
-- Core crash capture with frame walking (Python 3.9–3.13)
-- Local variable capture with type information
-- Exception chaining support (__cause__, __context__, ExceptionGroup)
-- Secret redaction: variable name denylist + regex pattern detection
-- Custom redaction rules via `RedactionRule`
-- `before_capture` hook for application-specific scrubbing
-- Versioned JSON crash report format
-- Atomic file writes with 0o600 permissions
-- Rich-powered terminal viewer (`safedump view`)
-- Crash report listing (`safedump list`)
-- Self-test (`safedump test`)
-- Privacy tiers (0–4) with configurable capture levels
-- Double-fault guard — original traceback always preserved
-- 67 tests (unit + integration)
-- CI/CD workflows (lint, type-check, test matrix 3.9–3.13, build)
+- **Full crash capture** with frame walking, local variables, exception chains (Python 3.9–3.13)
+- **ExceptionGroup support** (Python 3.11+) and `__cause__`/`__context__` chaining
+- **Secret redaction** — variable name denylist + regex credential detection + custom rules
+- **`before_capture` hook** for application-specific scrubbing
+- **Three exception hooks** — `sys.excepthook`, `threading.excepthook`, `sys.unraisablehook`
+- **Versioned JSON crash report format** with schema validation
+- **Atomic file writes** with 0o600 permissions and `/tmp` fallback
+- **Pre-allocated fallback buffer** for MemoryError scenarios
+- **Double-fault guard** — original traceback always preserved
+- **Rich-powered terminal viewer** (`safedump view`) with syntax highlighting
+- **CLI subcommands** — `view`, `list`, `clean`, `test`
+- **Privacy tiers 0–4** with configurable capture levels
+- **Configuration presets** — production, development, debug, minimal
+- **Environment variable name capture** (values never captured by default)
+- **67 tests** (unit + integration) across 5 Python versions
+- **CI/CD workflows** — lint, type-check, test matrix (3.9–3.13), build, PyPI publish
 
-### Changed
-- **API stability guarantee** — semver enforced from v1.0.0 onward
-- **Deprecation policy** — 2 minor versions of DeprecationWarning before removal
+### Fixed
+- `--version` now shows correct version from `safedump.__version__`
+- Python 3.9 compatibility for `X | Y` union syntax
 
-## [0.1.0] — 2026-06-25
+## [0.0.0] — 2026-06-25
 
-Initial release.
+### Added
+- Repository bootstrap and project infrastructure
