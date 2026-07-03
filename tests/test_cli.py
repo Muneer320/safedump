@@ -1,8 +1,7 @@
 """Tests for the CLI entry point."""
 
-from importlib.metadata import version
 import subprocess
-import sys
+from importlib.metadata import version
 
 
 def test_version_matches_package():
