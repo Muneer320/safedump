@@ -29,9 +29,7 @@ def _run_crash(fixture_name: str, crash_dir: str) -> tuple[int, str, str]:
     safe_crash_dir = crash_dir.replace("\\", "/")
     script = fixture.read_text(encoding="utf-8").replace("CRASH_DIR_PLACEHOLDER", safe_crash_dir)
 
-    with tempfile.NamedTemporaryFile(
-        suffix=".py", mode="w", delete=False, encoding="utf-8"
-    ) as f:
+    with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False, encoding="utf-8") as f:
         f.write(script)
         script_path = f.name
 
@@ -99,6 +97,8 @@ class TestSecretRedaction:
         assert report is not None
         report_text = json.dumps(json.loads(report.read_text(encoding="utf-8")))
         assert "Alice" in report_text
+
+
 class TestKeyboardInterrupt:
     def test_keyboard_interrupt_is_not_suppressed(self, crash_dir):
         exit_code, _, stderr = _run_crash("keyboard_interrupt.py", str(crash_dir))
