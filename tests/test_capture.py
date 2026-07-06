@@ -5,6 +5,7 @@ directly, for scenarios that are impractical to trigger via a real
 subprocess crash (an empty/None traceback, and a MemoryError raised
 mid-capture).
 """
+
 from __future__ import annotations
 
 import sys
