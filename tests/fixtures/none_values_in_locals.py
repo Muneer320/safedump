@@ -1,0 +1,7 @@
+import safedump
+
+safedump.configure(output_dir='CRASH_DIR_PLACEHOLDER')
+safedump.install()
+result = None
+config = None
+raise RuntimeError("testing none values in locals")
