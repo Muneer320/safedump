@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.1.0] — 2026-07-09
+
+### Added
+- **Framework integration guides** — Flask, FastAPI, Django docs at `docs/frameworks/` (by @TunahanB)
+- **`safedump view --json` flag** — output raw JSON for piping to `jq` (by @SemTiOne)
+- **Capture-layer edge case tests** — MemoryError, KeyboardInterrupt, SystemExit, Unicode, None values (by @Diyaaa-12)
+- **Serializer edge-case tests** — circular references, broken `__repr__`, `__slots__` objects (by @uttam12331)
+
+### Fixed
+- **Friendly error when Rich is missing** — `safedump view` now shows `pip install safedump[view]` hint instead of traceback (by @SemTiOne)
+- **Dynamic version** — `--version` reads from `importlib.metadata` instead of hardcoded string (by @Diyaaa-12)
+- **Windows `_run_crash` path** — uses tempfile instead of `-c` to avoid backslash escaping issues (by @Diyaaa-12)
+
+### Docs
+- Framework integration guides (Flask, FastAPI, Django)
+- CodeRabbit review fixes applied before merge
+
 ## [1.0.0] — 2026-06-25
 
 ### Added
@@ -22,7 +39,6 @@
 - **Rich-powered terminal viewer** (`safedump view`) with syntax highlighting
 - **CLI subcommands** — `view`, `list`, `clean`, `test`
 - **Privacy tiers 0–4** with configurable capture levels
-- **Configuration presets** — production, development, debug, minimal
 - **Environment variable name capture** (values never captured by default)
 - **67 tests** (unit + integration) across 5 Python versions
 - **CI/CD workflows** — lint, type-check, test matrix (3.9–3.13), build, PyPI publish
@@ -30,8 +46,3 @@
 ### Fixed
 - `--version` now shows correct version from `safedump.__version__`
 - Python 3.9 compatibility for `X | Y` union syntax
-
-## [0.0.0] — 2026-06-25
-
-### Added
-- Repository bootstrap and project infrastructure
