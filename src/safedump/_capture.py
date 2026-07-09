@@ -274,7 +274,14 @@ def crash_handler(
 
 
 def install() -> None:
-    """Install Safedump crash hooks globally."""
+    """Install Safedump crash hooks globally.
+
+    Replaces sys.excepthook, threading.excepthook, and
+    sys.unraisablehook with the Safedump crash handler.
+    Uses the current configuration set via configure().
+
+    Safe to call multiple times. Subsequent calls are no-ops.
+    """
     global _installed, _original_excepthook, _original_threading_excepthook
     global _original_unraisablehook, _fallback_buffer
 
@@ -300,7 +307,13 @@ def install() -> None:
 
 
 def uninstall() -> None:
-    """Restore original Python exception hooks."""
+    """Restore original Python exception hooks.
+
+    Reverses install() by restoring sys.excepthook, threading.excepthook,
+    and sys.unraisablehook to their original values.
+
+    Safe to call multiple times. Subsequent calls are no-ops.
+    """
     global _installed
 
     if not _installed:
