@@ -47,6 +47,11 @@ _original_unraisablehook: Any = None
 # Install state
 _installed: bool = False
 
+# Maximum stack frames to capture (unrelated to max_depth, which controls
+# nested object serialization depth). Set high enough to capture deep
+# tracebacks including asyncio coroutine frames.
+MAX_FRAMES: int = 100
+
 
 def _safe_repr(obj: Any, max_chars: int = 500) -> str:
     """Safely convert an object to its string representation.
@@ -237,7 +242,7 @@ def crash_handler(
         # Walk frames
         frames = _walk_traceback(exc_tb)
         for i, (frame, lineno) in enumerate(frames):
-            if i >= config.max_depth:
+            if i >= MAX_FRAMES:
                 break
             fs = _capture_frame(frame, lineno, i, config)
             report.frames.append(fs)
