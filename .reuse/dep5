@@ -1,0 +1,14 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: safedump
+Upstream-Contact: Muneer Alam <muneer.alam320@gmail.com>
+Source: https://github.com/Muneer320/safedump
+
+# Sample files and documentation are licensed under MIT
+Files: tests/fixtures/* docs/** README.md CHANGELOG.md ROADMAP.md CONTRIBUTING.md AI_POLICY.md
+Copyright: 2026 Muneer Alam
+License: MIT
+
+# Configuration files
+Files: pyproject.toml .pre-commit-config.yaml .github/*
+Copyright: 2026 Muneer Alam
+License: MIT

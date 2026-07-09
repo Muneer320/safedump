@@ -7,6 +7,11 @@ This module runs inside exception hooks — it must never fail
 and must always preserve the original traceback.
 """
 
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
+
 from __future__ import annotations
 
 import contextlib

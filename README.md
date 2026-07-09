@@ -16,6 +16,7 @@
   <a href="https://pypi.org/project/safedump/"><img src="https://img.shields.io/pypi/pyversions/safedump" alt="Python"></a>
   <a href="https://pypi.org/project/safedump/"><img src="https://img.shields.io/pypi/dm/safedump" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License"></a>
+  <a href="https://reuse.software/"><img src="https://api.reuse.software/badge/github.com/Muneer320/safedump" alt="REUSE"></a>
 </p>
 
 ---

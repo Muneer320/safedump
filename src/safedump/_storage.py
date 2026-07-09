@@ -4,6 +4,11 @@ Handles filename generation, atomic writes, permissions,
 and fallback paths. Runs in the crash-time hot path.
 """
 
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
+
 from __future__ import annotations
 
 import hashlib

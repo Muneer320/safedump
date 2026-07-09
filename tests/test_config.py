@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
+
 """Tests for the Safedump configuration module."""
 
 from pathlib import Path

@@ -5,6 +5,11 @@ This is a private module — use the public ``configure()`` in
 ``safedump.__init__`` instead of importing this directly.
 """
 
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
+
 from __future__ import annotations
 
 import threading

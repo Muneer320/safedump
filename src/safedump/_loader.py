@@ -4,6 +4,11 @@ Parses JSON report files and discovers recent crashes.
 Runs in the cold path — can fail safely.
 """
 
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
+
 from __future__ import annotations
 
 import json

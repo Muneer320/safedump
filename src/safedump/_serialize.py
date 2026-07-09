@@ -4,6 +4,11 @@ Converts CrashReport objects to versioned JSON strings.
 Runs in the crash-time hot path — must never raise.
 """
 
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
+
 from __future__ import annotations
 
 import json

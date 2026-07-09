@@ -7,6 +7,11 @@ Usage:
     safedump --version       Show version
 """
 
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
+
 from __future__ import annotations
 
 import argparse

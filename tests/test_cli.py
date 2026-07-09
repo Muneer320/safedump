@@ -6,6 +6,11 @@ from importlib.metadata import version
 
 def test_version_matches_package():
     """--version should report the installed package version, not a hardcoded string."""
+
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
     result = subprocess.run(
         ["safedump", "--version"],
         capture_output=True,

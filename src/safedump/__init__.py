@@ -13,6 +13,11 @@ View crashes:
     $ safedump list      # recent crashes
 """
 
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
+
 from __future__ import annotations
 
 __version__ = "1.1.0"

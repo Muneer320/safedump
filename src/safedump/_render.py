@@ -4,6 +4,11 @@ Uses Rich for syntax-highlighted, color-coded output.
 Runs in the cold path — can fail safely.
 """
 
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
+
 from __future__ import annotations
 
 from typing import Any

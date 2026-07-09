@@ -6,6 +6,11 @@ subprocess crash (an empty/None traceback, and a MemoryError raised
 mid-capture).
 """
 
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
+
 from __future__ import annotations
 
 import sys

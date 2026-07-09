@@ -17,6 +17,11 @@ FIXTURES = Path(__file__).parent / "fixtures"
 def _run_crash(fixture_name: str, crash_dir: str) -> tuple[int, str, str]:
     """Run a crash fixture. crash_dir must exist for the lifetime needed.
 
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
+
     The script is written to a temp .py file rather than passed via
     ``-c``, since embedding a Windows path (with backslashes) directly
     in a ``-c`` script string causes Python to misinterpret sequences

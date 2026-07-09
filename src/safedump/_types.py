@@ -3,6 +3,11 @@
 These are NOT part of the public API. They may change without notice.
 """
 
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
+
 from __future__ import annotations
 
 import re
