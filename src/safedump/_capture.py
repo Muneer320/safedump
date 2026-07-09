@@ -336,7 +336,11 @@ def uninstall() -> None:
 
 
 def is_installed() -> bool:
-    """Check if Safedump hooks are currently active."""
+    """Check if Safedump crash hooks are currently active.
+
+    Returns:
+        True if install() has been called and uninstall() has not.
+    """
     return _installed
 
 
@@ -346,9 +350,22 @@ def capture_exception(
     privacy_tier: int | None = None,
     output_dir: str | Path | None = None,
 ) -> Path | None:
-    """Manual crash capture for try/except blocks.
+    """Capture an exception and write a crash report.
 
-    If exc is None, captures sys.exc_info().
+    Use inside except blocks to manually capture exception context.
+    If no exception is provided, captures the currently handled
+    exception via sys.exc_info().
+
+    Args:
+        exc: The exception to capture. If None, uses sys.exc_info().
+        privacy_tier: Override the configured privacy tier for this capture.
+        output_dir: Override the configured output directory for this capture.
+
+    Returns:
+        Path to the written crash report, or None if the write failed.
+
+    Raises:
+        RuntimeError: If no exception is available and none was provided.
     """
     if exc is None:
         exc = sys.exc_info()[1]

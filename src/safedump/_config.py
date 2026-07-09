@@ -39,11 +39,28 @@ def configure(
 ) -> None:
     """Configure Safedump globally.
 
-    All parameters are keyword-only.  Validates eagerly — invalid
-    values raise :class:`ValueError` immediately.  Safe to call
-    multiple times; each call replaces the previous configuration.
+    All parameters are keyword-only. Validates eagerly: invalid
+    values raise ValueError immediately. Safe to call multiple times;
+    each call replaces the previous configuration.
 
-    Call before :func:`safedump.install`.
+    Call before install().
+
+    Args:
+        preset: Configuration preset. One of "production", "development",
+            "debug", or "minimal". Overrides individual parameters.
+        output_dir: Directory for crash report files.
+        privacy_tier: Capture detail level (0-4). Higher values capture more.
+        include_env_names: Include environment variable names in reports.
+        include_argv: Include command-line arguments in reports.
+        max_string_length: Maximum length for captured string values.
+        max_collection_items: Maximum items from lists/dicts/sets.
+        max_depth: Maximum depth for nested object traversal.
+        redaction_rules: Additional redaction rules (strings or RedactionRule).
+        before_capture: Callback invoked before report generation. Receives
+            the CrashReport and returns a modified one, or None to skip.
+
+    Raises:
+        ValueError: If preset is unknown or parameter validation fails.
     """
     # Apply preset if specified
     if preset is not None:
