@@ -57,7 +57,7 @@ from safedump._config import configure as _configure
 from safedump._loader import load_report as _load_report
 from safedump._serialize import register_serializer as _register_serializer
 from safedump._types import RedactionRule
-from safedump.watch import watch as _watch
+from safedump.watch import _Watch, watch as _watch
 
 # All public functions are placeholders — implementation begins in M1.
 # They exist so the package imports successfully and IDEs show completions.
@@ -142,7 +142,7 @@ def watch(
     *,
     privacy_tier: int | None = None,
     output_dir: str | Path | None = None,
-) -> Any:
+) -> _Watch:
     """Return a context manager for scoped crash monitoring.
 
     Unlike :func:`install`, this does not install global exception
