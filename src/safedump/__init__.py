@@ -17,7 +17,6 @@ View crashes:
 #
 # SPDX-License-Identifier: MIT
 
-
 from __future__ import annotations
 
 __version__ = "1.1.0"
@@ -36,6 +35,7 @@ __all__ = [
     "register_serializer",
     "test",
     "uninstall",
+    "watch",
 ]
 
 from pathlib import Path
@@ -57,6 +57,7 @@ from safedump._config import configure as _configure
 from safedump._loader import load_report as _load_report
 from safedump._serialize import register_serializer as _register_serializer
 from safedump._types import RedactionRule
+from safedump.watch import watch as _watch
 
 # All public functions are placeholders — implementation begins in M1.
 # They exist so the package imports successfully and IDEs show completions.
@@ -135,6 +136,24 @@ def capture_exception(
         privacy_tier=privacy_tier,
         output_dir=output_dir,
     )
+
+
+def watch(
+    *,
+    privacy_tier: int | None = None,
+    output_dir: str | Path | None = None,
+) -> Any:
+    """Return a context manager for scoped crash monitoring.
+
+    Unlike :func:`install`, this does not install global exception
+    hooks — it only captures exceptions raised within the ``with``
+    block and re-raises them.
+
+    Example:
+        >>> with safedump.watch():
+        ...     dangerous_code()
+    """
+    return _watch(privacy_tier=privacy_tier, output_dir=output_dir)
 
 
 def test() -> Path | None:

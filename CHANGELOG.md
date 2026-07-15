@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- **`watch()` context manager** — scoped crash monitoring for a specific code block without installing global exception hooks; supports `privacy_tier` and `output_dir` overrides (by @Diyaaa-12)
+
 ## [1.1.0] — 2026-07-09
 
 ### Added
