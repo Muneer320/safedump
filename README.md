@@ -204,6 +204,23 @@ Yes. Use `configure(preset="production")` (privacy tier 1, no env capture, no ar
 | 3.12 | ✅ |
 | 3.13 | ✅ |
 
+## Platform Support
+
+Safedump is tested and fully supported on Windows, macOS, and Linux.
+
+| Platform | Status | Notes |
+|---|---|---|
+| Linux | ✅ | Primary development platform |
+| macOS | ✅ | Fully supported |
+| Windows | ✅ | Verified on Windows 11, Python 3.13 |
+
+**Windows-specific notes:**
+
+- Crash reports are saved under `%USERPROFILE%\.safedump` by default (equivalent to `~/.safedump` on Unix).
+- If the primary output directory is unavailable, Safedump falls back to your system's temp directory (`tempfile.gettempdir()`), not a hardcoded `/tmp` path.
+- Colored, Rich-formatted output works in PowerShell, Command Prompt, and Windows Terminal. If [Rich](https://github.com/Textualize/rich) is not installed, Safedump automatically falls back to clean plain-text output — no crashes, no garbled characters.
+- Box-drawing characters used by Rich (panels, tables) render correctly in modern Windows terminals.
+
 ## Roadmap
 
 - **v1.1** — HTML export, `safedump serve`, entropy-based redaction
