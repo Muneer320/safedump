@@ -104,7 +104,7 @@ def save(json_str: str, config: SafedumpConfig, report: CrashReport) -> Path | N
     2. Ensures the output directory exists (0o700).
     3. Writes the JSON atomically (tempfile + rename).
     4. Sets file permissions to 0o600.
-    5. Falls back to /tmp if primary output_dir fails.
+    5. Falls back to system temp directory if primary output_dir fails.
 
     Args:
         json_str: JSON string to write.
@@ -123,8 +123,8 @@ def save(json_str: str, config: SafedumpConfig, report: CrashReport) -> Path | N
         if result is not None:
             return result
 
-    # Fallback to /tmp
-    fallback_dir = Path(f"/tmp/safedump-fallback-{os.getpid()}")
+    # Fallback to system temp directory (cross-platform)
+    fallback_dir = Path(tempfile.gettempdir()) / f"safedump-fallback-{os.getpid()}"
     fb_dir = _ensure_output_dir(fallback_dir)
     if fb_dir is not None:
         result = _write_atomic(fb_dir, filename, json_str)
