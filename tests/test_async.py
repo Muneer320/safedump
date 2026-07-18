@@ -8,12 +8,8 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
-import time
 import uuid
 from pathlib import Path
-
-import pytest
 
 
 def _run_fixture(name: str, code: str) -> tuple[dict | None, str, str]:
@@ -66,7 +62,7 @@ async def main():
 
 asyncio.run(main())
 '''
-        report, stdout, stderr = _run_fixture("direct_await", code)
+        report, _stdout, stderr = _run_fixture("direct_await", code)
         assert report is not None, f"No report generated. stderr: {stderr}"
 
         assert report["exception"]["type"] == "KeyError"
@@ -101,7 +97,7 @@ async def main():
 
 asyncio.run(main())
 '''
-        report, stdout, stderr = _run_fixture("nested_async", code)
+        report, _stdout, stderr = _run_fixture("nested_async", code)
         assert report is not None, f"No report generated. stderr: {stderr}"
 
         functions = [f["function"] for f in report["frames"]]
@@ -155,7 +151,7 @@ async def main():
 
 asyncio.run(main())
 '''
-        report, stdout, stderr = _run_fixture("mixed_chain", code)
+        report, _stdout, stderr = _run_fixture("mixed_chain", code)
         assert report is not None, f"No report generated. stderr: {stderr}"
 
         functions = [f["function"] for f in report["frames"]]
@@ -181,7 +177,7 @@ async def main():
 
 asyncio.run(main())
 '''
-        report, stdout, stderr = _run_fixture("async_locals", code)
+        report, _stdout, stderr = _run_fixture("async_locals", code)
         assert report is not None, f"No report generated. stderr: {stderr}"
 
         # main is a coroutine frame - locals may or may not be preserved
@@ -209,7 +205,7 @@ async def main():
 
 asyncio.run(main())
 '''
-        report, stdout, stderr = _run_fixture("task_crash", code)
+        report, _stdout, stderr = _run_fixture("task_crash", code)
         assert report is not None, f"No report generated. stderr: {stderr}"
         assert report["exception"]["type"] in ("KeyError", "RuntimeError"), \
             f"Expected KeyError or RuntimeError, got {report['exception']['type']}"

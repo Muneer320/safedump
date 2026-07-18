@@ -57,7 +57,8 @@ from safedump._config import configure as _configure
 from safedump._loader import load_report as _load_report
 from safedump._serialize import register_serializer as _register_serializer
 from safedump._types import RedactionRule
-from safedump.watch import _Watch, watch as _watch
+from safedump.watch import _Watch
+from safedump.watch import watch as _watch
 
 # All public functions are placeholders — implementation begins in M1.
 # They exist so the package imports successfully and IDEs show completions.
