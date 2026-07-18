@@ -8,7 +8,6 @@ and fallback paths. Runs in the crash-time hot path.
 #
 # SPDX-License-Identifier: MIT
 
-
 from __future__ import annotations
 
 import hashlib

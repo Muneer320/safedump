@@ -30,10 +30,7 @@ safedump.install()
     with open(fpath, "w") as f:
         f.write(script)
 
-    result = subprocess.run(
-        [sys.executable, fpath],
-        capture_output=True, text=True, timeout=10
-    )
+    result = subprocess.run([sys.executable, fpath], capture_output=True, text=True, timeout=10)
 
     reports = sorted(Path(out_dir).glob("*.json"))
     report = None
@@ -49,7 +46,7 @@ class TestAsyncCapture:
 
     def test_direct_await_crash(self):
         """A directly awaited coroutine that crashes should capture the frame."""
-        code = '''
+        code = """
 import asyncio
 
 async def fetch_data(url):
@@ -61,7 +58,7 @@ async def main():
     await fetch_data("https://example.com")
 
 asyncio.run(main())
-'''
+"""
         report, _stdout, stderr = _run_fixture("direct_await", code)
         assert report is not None, f"No report generated. stderr: {stderr}"
 
@@ -72,13 +69,14 @@ asyncio.run(main())
         # Coroutine frame should preserve locals
         fetch_frame = [f for f in report["frames"] if f["function"] == "fetch_data"]
         assert fetch_frame, "fetch_data frame not found"
-        assert "data" in fetch_frame[0].get("locals", {}), \
+        assert "data" in fetch_frame[0].get("locals", {}), (
             f"Expected 'data' in fetch_data locals: {fetch_frame[0].get('locals', {})}"
+        )
         assert "url" in fetch_frame[0].get("locals", {})
 
     def test_nested_async_calls(self):
         """Deeply nested async calls should preserve all frames."""
-        code = '''
+        code = """
 import asyncio
 
 async def level3(depth):
@@ -96,7 +94,7 @@ async def main():
     await level1()
 
 asyncio.run(main())
-'''
+"""
         report, _stdout, stderr = _run_fixture("nested_async", code)
         assert report is not None, f"No report generated. stderr: {stderr}"
 
@@ -110,7 +108,7 @@ asyncio.run(main())
 
     def test_async_gather_return_exceptions(self):
         """gather(return_exceptions=True) should NOT trigger crash handler."""
-        code = '''
+        code = """
 import asyncio
 
 async def failing_task(name):
@@ -127,16 +125,17 @@ async def main():
 
 asyncio.run(main())
 print("SUCCESS_NO_CRASH", flush=True)
-'''
+"""
         report, stdout, stderr = _run_fixture("gather_return", code)
-        assert "SUCCESS_NO_CRASH" in stdout, \
+        assert "SUCCESS_NO_CRASH" in stdout, (
             f"gather with return_exceptions should not crash. stderr: {stderr}"
+        )
         # No crash report should be generated since all exceptions were handled
         assert report is None, "No report should be generated for handled exceptions"
 
     def test_mixed_sync_async_chain(self):
         """A sync function calling async should capture all frames."""
-        code = '''
+        code = """
 import asyncio
 
 async def async_step(data):
@@ -150,7 +149,7 @@ async def main():
     sync_wrapper()
 
 asyncio.run(main())
-'''
+"""
         report, _stdout, stderr = _run_fixture("mixed_chain", code)
         assert report is not None, f"No report generated. stderr: {stderr}"
 
@@ -161,7 +160,7 @@ asyncio.run(main())
 
     def test_async_main_locals(self):
         """The main coroutine's locals should be captured when available."""
-        code = '''
+        code = """
 import asyncio
 
 async def fetch_data(url):
@@ -176,7 +175,7 @@ async def main():
     await fetch_data(api_url)
 
 asyncio.run(main())
-'''
+"""
         report, _stdout, stderr = _run_fixture("async_locals", code)
         assert report is not None, f"No report generated. stderr: {stderr}"
 
@@ -184,14 +183,14 @@ asyncio.run(main())
         # depending on CPython version. Verify fetch_data locals instead.
         fetch_frame = [f for f in report["frames"] if f["function"] == "fetch_data"]
         assert fetch_frame, "fetch_data frame should be present"
-        assert "data" in fetch_frame[0].get("locals", {}), \
+        assert "data" in fetch_frame[0].get("locals", {}), (
             f"fetch_data locals missing: {fetch_frame[0].get('locals', {})}"
-        assert "headers" in fetch_frame[0].get("locals", {}), \
-            "fetch_data should have headers local"
+        )
+        assert "headers" in fetch_frame[0].get("locals", {}), "fetch_data should have headers local"
 
     def test_asyncio_task_crash(self):
         """An asyncio Task that crashes should be captured when awaited."""
-        code = '''
+        code = """
 import asyncio
 
 async def bad_task():
@@ -204,8 +203,9 @@ async def main():
     await task
 
 asyncio.run(main())
-'''
+"""
         report, _stdout, stderr = _run_fixture("task_crash", code)
         assert report is not None, f"No report generated. stderr: {stderr}"
-        assert report["exception"]["type"] in ("KeyError", "RuntimeError"), \
+        assert report["exception"]["type"] in ("KeyError", "RuntimeError"), (
             f"Expected KeyError or RuntimeError, got {report['exception']['type']}"
+        )
