@@ -7,7 +7,6 @@ These are NOT part of the public API. They may change without notice.
 #
 # SPDX-License-Identifier: MIT
 
-
 from __future__ import annotations
 
 import re
@@ -119,6 +118,11 @@ DENYLIST_SUBSTRING_MATCH: set[str] = {
     "stripe_key",
     "github_token",
     "ssh_key",
+    "passphrase",
+    "certificate",
+    "encryption_key",
+    "signing_key",
+    "bearer",
 }
 
 

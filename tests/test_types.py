@@ -82,3 +82,32 @@ class TestCrashReport:
         report.frames.append(frame)
         assert len(report.frames) == 1
         assert report.frames[0].function == "test"
+
+
+class TestNewPatterns:
+    """测试新加的 5 个脱敏模式"""
+
+    def test_passphrase_detected(self):
+        assert is_denylisted("ssl_passphrase")
+        assert is_denylisted("passphrase")
+        assert is_denylisted("my_passphrase")
+
+    def test_certificate_detected(self):
+        assert is_denylisted("ssl_certificate")
+        assert is_denylisted("certificate_path")
+        assert is_denylisted("my_certificate")
+
+    def test_encryption_key_detected(self):
+        assert is_denylisted("encryption_key")
+        assert is_denylisted("my_encryption_key")
+        assert is_denylisted("aes_encryption_key")
+
+    def test_signing_key_detected(self):
+        assert is_denylisted("signing_key")
+        assert is_denylisted("my_signing_key")
+        assert is_denylisted("signing_key_path")
+
+    def test_bearer_detected(self):
+        assert is_denylisted("bearer_token")
+        assert is_denylisted("bearer")
+        assert is_denylisted("my_bearer")
