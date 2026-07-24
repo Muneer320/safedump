@@ -6,7 +6,11 @@
 """Tests for the Safedump storage module."""
 
 import json
+import os
+import platform
 from pathlib import Path
+
+import pytest
 
 from safedump._config import SafedumpConfig
 from safedump._storage import _sanitize_filename_component, generate_filename, save
@@ -70,6 +74,8 @@ class TestSave:
         assert "test" in content
 
     def test_file_permissions(self, tmp_path):
+        if platform.system() == "Windows":
+            pytest.skip("chmod semantics differ on Windows")
         config = SafedumpConfig(output_dir=tmp_path / "crashes")
         report = CrashReport(
             exception=ExceptionSnapshot(type="ValueError", message="test"),
@@ -81,6 +87,8 @@ class TestSave:
         assert stat.st_mode & 0o777 == 0o600
 
     def test_directory_permissions(self, tmp_path):
+        if platform.system() == "Windows":
+            pytest.skip("chmod semantics differ on Windows")
         config = SafedumpConfig(output_dir=tmp_path / "crashes")
         report = CrashReport(
             exception=ExceptionSnapshot(type="ValueError", message="test"),

@@ -32,8 +32,9 @@ class TestSafedumpEncoder:
     def test_path_to_string(self):
         config = SafedumpConfig()
         encoder = SafedumpEncoder(config)
-        result = encoder.default(Path("/tmp/test"))
-        assert result == "/tmp/test"
+        path = Path("/tmp/test")
+        result = encoder.default(path)
+        assert result == str(path)
 
     def test_enum_to_dict(self):
         config = SafedumpConfig()
