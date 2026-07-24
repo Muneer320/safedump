@@ -6,7 +6,6 @@
 """Tests for the Safedump storage module."""
 
 import json
-import os
 import platform
 from pathlib import Path
 
