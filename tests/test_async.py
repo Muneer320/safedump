@@ -8,6 +8,8 @@ Each test uses a unique output directory to avoid cross-test contamination.
 #
 # SPDX-License-Identifier: MIT
 
+from __future__ import annotations
+
 import json
 import os
 import subprocess
