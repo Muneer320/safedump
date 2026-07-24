@@ -4,6 +4,10 @@ Tests cover the async edge cases identified in issue #23.
 Each test uses a unique output directory to avoid cross-test contamination.
 """
 
+# SPDX-FileCopyrightText: 2026 Muneer Alam
+#
+# SPDX-License-Identifier: MIT
+
 import json
 import os
 import subprocess

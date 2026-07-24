@@ -9,6 +9,16 @@ Copyright: 2026 Muneer Alam
 License: MIT
 
 # Configuration files
-Files: pyproject.toml .pre-commit-config.yaml .github/*
+Files: pyproject.toml .pre-commit-config.yaml .github/* .editorconfig .gitignore
+Copyright: 2026 Muneer Alam
+License: MIT
+
+# Community health files
+Files: CODE_OF_CONDUCT.md SECURITY.md SUPPORT.md
+Copyright: 2026 Muneer Alam
+License: MIT
+
+# Binary assets
+Files: assets/safedump-demo.gif
 Copyright: 2026 Muneer Alam
 License: MIT
