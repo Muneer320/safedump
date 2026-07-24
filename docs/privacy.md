@@ -32,10 +32,12 @@ String values matching known credential formats are redacted:
 ### Custom Redaction Rules
 Add domain-specific rules:
 ```python
-safedump.configure(redaction_rules=[
-    safedump.RedactionRule(r"PROPRIETARY-\d+", "[REDACTED]"),
-    safedump.RedactionRule(r"\b\d{3}-\d{2}-\d{4}\b", "[SSN REDACTED]", "values"),
-])
+safedump.configure(
+    redaction_rules=[
+        safedump.RedactionRule(r"PROPRIETARY-\d+", "[REDACTED]"),
+        safedump.RedactionRule(r"\b\d{3}-\d{2}-\d{4}\b", "[SSN REDACTED]", "values"),
+    ]
+)
 ```
 
 ## What Is NEVER Captured (by default)
@@ -54,6 +56,7 @@ For maximum control, use the `before_capture` hook to scrub data before Safedump
 def my_scrubber(report):
     # Remove sensitive frames or values
     return report
+
 
 safedump.configure(before_capture=my_scrubber)
 ```

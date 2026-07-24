@@ -62,7 +62,7 @@ Combine both: middleware catches framework-level errors, error handler produces 
 import safedump
 
 safedump.configure(
-    preset="production",          # privacy tier 1, no env capture, no argv
+    preset="production",  # privacy tier 1, no env capture, no argv
     output_dir="/var/log/safedump",
     max_depth=5,
 )

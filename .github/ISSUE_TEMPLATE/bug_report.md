@@ -13,6 +13,7 @@ A clear and concise description of what the bug is.
 ```python
 # Minimal code to reproduce the crash
 import safedump
+
 safedump.install()
 
 # Code that triggers the issue

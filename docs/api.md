@@ -109,6 +109,7 @@ def register_serializer(type_: type, handler: Callable[[Any], Any]) -> None
 Example:
 ```python
 import numpy as np
+
 safedump.register_serializer(np.ndarray, lambda a: a.tolist())
 ```
 
@@ -120,7 +121,7 @@ A custom secret redaction rule.
 
 ```python
 class RedactionRule(NamedTuple):
-    pattern: str          # Regex pattern
+    pattern: str  # Regex pattern
     replacement: str = "[REDACTED]"
     apply_to: str = "values"  # "values" | "names" | "both"
 ```

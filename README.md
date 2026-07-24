@@ -29,6 +29,7 @@ When an exception occurs, Safedump captures the complete debugging context — l
 
 ```python
 import safedump
+
 safedump.install()
 # ... your application runs, crashes ...
 # Crash report saved: ~/.safedump/crash-2026-06-25-123456-TypeError-a1b2c3.json
@@ -84,6 +85,7 @@ pip install safedump
 
 ```python
 import safedump
+
 safedump.install()
 ```
 
@@ -159,9 +161,9 @@ except Exception:
 
 ```python
 safedump.configure(
-    preset="production",      # or "development", "debug", "minimal"
-    output_dir="./crashes",   # where to save reports
-    privacy_tier=1,           # 0=minimal, 1=default, 4=everything
+    preset="production",  # or "development", "debug", "minimal"
+    output_dir="./crashes",  # where to save reports
+    privacy_tier=1,  # 0=minimal, 1=default, 4=everything
 )
 ```
 
