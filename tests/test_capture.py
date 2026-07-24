@@ -10,7 +10,6 @@ mid-capture).
 #
 # SPDX-License-Identifier: MIT
 
-
 from __future__ import annotations
 
 import sys

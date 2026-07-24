@@ -9,7 +9,6 @@ This is a private module — use the public ``configure()`` in
 #
 # SPDX-License-Identifier: MIT
 
-
 from __future__ import annotations
 
 import threading

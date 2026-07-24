@@ -10,9 +10,9 @@ import pytest
 def temp_output_dir():
     """Create a temporary directory for crash reports."""
 
-# SPDX-FileCopyrightText: 2026 Muneer Alam
-#
-# SPDX-License-Identifier: MIT
+    # SPDX-FileCopyrightText: 2026 Muneer Alam
+    #
+    # SPDX-License-Identifier: MIT
 
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)

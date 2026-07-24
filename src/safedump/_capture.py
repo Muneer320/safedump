@@ -11,7 +11,6 @@ and must always preserve the original traceback.
 #
 # SPDX-License-Identifier: MIT
 
-
 from __future__ import annotations
 
 import contextlib

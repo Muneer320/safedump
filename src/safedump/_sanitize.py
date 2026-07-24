@@ -8,7 +8,6 @@ Runs in the crash-time hot path — must never raise.
 #
 # SPDX-License-Identifier: MIT
 
-
 from __future__ import annotations
 
 import re
