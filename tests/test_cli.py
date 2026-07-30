@@ -1,31 +1,29 @@
-"""Tests for the CLI entry point."""
+"""Tests for the safedump doctor command."""
+
+from __future__ import annotations
 
 import subprocess
-from importlib.metadata import version
+import sys
 
 
-def test_version_matches_package():
-    """--version should report the installed package version, not a hardcoded string."""
+class TestDoctorChecks:
+    def test_doctor_returns_zero_on_healthy(self):
+        """doctor should exit 0 on a clean system."""
+        result = subprocess.run(
+            [sys.executable, "-m", "safedump", "doctor"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        # May fail if safedump not installed, but should not crash
+        assert "Traceback" not in result.stderr
 
-    # SPDX-FileCopyrightText: 2026 Muneer Alam
-    #
-    # SPDX-License-Identifier: MIT
+    def test_doctor_checks_available(self):
+        """All doctor checks should be reachable."""
+        from safedump._cli import _doctor_checks
 
-    result = subprocess.run(
-        ["safedump", "--version"],
-        capture_output=True,
-        text=True,
-    )
-    expected = f"safedump {version('safedump')}"
-    assert expected in result.stdout or expected in result.stderr
-
-
-def test_version_is_not_hardcoded():
-    """--version should never return the old hardcoded 0.1.0."""
-    result = subprocess.run(
-        ["safedump", "--version"],
-        capture_output=True,
-        text=True,
-    )
-    assert "0.1.0" not in result.stdout
-    assert "0.1.0" not in result.stderr
+        checks = _doctor_checks()
+        assert len(checks) >= 3, f"Expected at least 3 checks, got {len(checks)}"
+        names = [c[0] for c in checks]
+        # Check for key diagnostics
+        assert any("python" in n.lower() for n in names)

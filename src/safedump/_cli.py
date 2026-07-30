@@ -74,6 +74,14 @@ def main() -> None:
     # safedump test
     subparsers.add_parser("test", help="Self-test -- verify safedump is working")
 
+    # safedump doctor
+    doctor_parser = subparsers.add_parser(
+        "doctor", help="Diagnose common issues with safedump configuration"
+    )
+    doctor_parser.add_argument(
+        "--verbose", action="store_true", help="Show detailed diagnostic output"
+    )
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -92,6 +100,8 @@ def main() -> None:
         )
     elif args.command == "clean":
         _cmd_clean(args.older_than)
+    elif args.command == "doctor":
+        _cmd_doctor(args.verbose)
     elif args.command == "test":
         _cmd_test()
 
@@ -185,3 +195,119 @@ def _cmd_test() -> None:
     else:
         print("Self-test failed.", file=sys.stderr)
         sys.exit(1)
+
+
+def _cmd_doctor(verbose: bool = False) -> None:
+    """Handle the 'doctor' subcommand -- diagnose common issues."""
+    checks = _doctor_checks()
+    all_ok = True
+
+    for name, status, message in checks:
+        if status == "ok":
+            icon = "[OK]"
+        elif status == "warn":
+            icon = "[WARN]"
+        else:
+            icon = "[FAIL]"
+            all_ok = False
+        print(f"  {icon} {name}")
+        if verbose and message:
+            print(f"        {message}")
+
+    if all_ok:
+        print("\nAll checks passed.")
+    else:
+        print("\nSome checks failed. Review the messages above.")
+        sys.exit(1)
+
+
+def _doctor_checks() -> list[tuple[str, str, str]]:
+    """Run diagnostic checks and return (name, status, message) triples.
+
+    Status is one of: "ok", "warn", "fail"
+    """
+    import os as _os
+    import sys as _sys
+
+    from safedump._capture import is_installed
+    from safedump._config import get_config
+
+    results: list[tuple[str, str, str]] = []
+
+    # Python version
+    py_version = f"{_sys.version_info.major}.{_sys.version_info.minor}"
+    results.append(("Python version", "ok", f"Python {py_version} is supported"))
+
+    # Check output directory
+    try:
+        config = get_config()
+        out_dir = config.output_dir
+        if out_dir.exists():
+            if _os.access(str(out_dir), _os.W_OK):
+                results.append(("Output directory", "ok", f"{out_dir} is writable"))
+            else:
+                results.append(
+                    ("Output directory", "fail", f"{out_dir} exists but is not writable")
+                )
+        else:
+            results.append(
+                (
+                    "Output directory",
+                    "warn",
+                    f"{out_dir} does not exist yet (will be created on first crash)",
+                )
+            )
+    except Exception as e:
+        results.append(("Configuration", "fail", f"Could not load config: {e}"))
+
+    # Check if hooks are installed
+    if is_installed():
+        results.append(("Exception hooks", "ok", "Safedump hooks are active"))
+    else:
+        results.append(
+            (
+                "Exception hooks",
+                "warn",
+                "Hooks not installed (run safedump.install() in your application)",
+            )
+        )
+
+    # Check for corrupted reports
+    from safedump._loader import list_reports
+
+    try:
+        reports = list_reports(get_config().output_dir, count=10)
+        corrupted = 0
+        for path in reports:
+            try:
+                from safedump._loader import load_report
+
+                load_report(path)
+            except Exception:
+                corrupted += 1
+        if corrupted == 0:
+            results.append(
+                ("Report integrity", "ok", f"All {len(reports)} recent reports are valid")
+            )
+        else:
+            results.append(
+                ("Report integrity", "warn", f"{corrupted} of {len(reports)} reports are corrupted")
+            )
+    except Exception as e:
+        results.append(("Report integrity", "warn", f"Could not scan reports: {e}"))
+
+    # Check Rich availability
+    try:
+        import rich  # noqa: F401
+
+        results.append(("Rich terminal viewer", "ok", "Rich is available"))
+    except ImportError:
+        results.append(
+            (
+                "Rich terminal viewer",
+                "warn",
+                "Rich not installed (install with: pip install safedump[view])",
+            )
+        )
+
+    return results
