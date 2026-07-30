@@ -44,3 +44,4 @@ Thumbs.db
 .safedump/
 dist/
 .mypy_cache/
+/site
