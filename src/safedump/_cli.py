@@ -82,6 +82,9 @@ def main() -> None:
         "--verbose", action="store_true", help="Show detailed diagnostic output"
     )
 
+    # safedump stats
+    subparsers.add_parser("stats", help="Show aggregate crash statistics")
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -102,6 +105,8 @@ def main() -> None:
         _cmd_clean(args.older_than)
     elif args.command == "doctor":
         _cmd_doctor(args.verbose)
+    elif args.command == "stats":
+        _cmd_stats()
     elif args.command == "test":
         _cmd_test()
 
@@ -195,6 +200,33 @@ def _cmd_test() -> None:
     else:
         print("Self-test failed.", file=sys.stderr)
         sys.exit(1)
+
+
+def _cmd_stats() -> None:
+    """Handle the 'stats' subcommand."""
+    from safedump._config import get_config
+    from safedump._loader import compute_stats
+
+    stats = compute_stats(get_config().output_dir)
+    print(f"Total crashes: {stats['total']}")
+
+    if stats["total"] == 0:
+        return
+
+    print("\nBy exception type:")
+    for exc_type, count in stats["by_type"].items():
+        bar = "#" * min(count, 40)
+        print(f"  {exc_type:20s} {count:4d}  {bar}")
+
+    print("\nBy day (last 14):")
+    days = list(stats["by_day"].items())[-14:]
+    for day, count in days:
+        print(f"  {day}  {count:4d}")
+
+    print("\nBy crash site (top 5):")
+    for site, count in list(stats["by_site"].items())[:5]:
+        bar = "#" * min(count, 40)
+        print(f"  {site:40s} {count:4d}  {bar}")
 
 
 def _cmd_doctor(verbose: bool = False) -> None:

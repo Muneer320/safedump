@@ -250,3 +250,47 @@ def clean_older_than(output_dir: str | Path, days: int) -> int:
         except OSError:
             pass
     return deleted
+
+
+def compute_stats(output_dir: str | Path) -> dict[str, Any]:
+    """Compute aggregate crash statistics.
+
+    Args:
+        output_dir: Directory containing crash reports.
+
+    Returns:
+        Dict with keys: total, by_type, by_day, by_site.
+    """
+    directory = Path(output_dir).expanduser()
+    if not directory.exists():
+        return {"total": 0, "by_type": {}, "by_day": {}, "by_site": {}}
+
+    from collections import Counter
+
+    type_counts: Counter = Counter()
+    day_counts: Counter = Counter()
+    site_counts: Counter = Counter()
+    total = 0
+
+    for report_path in directory.glob("*.safedump.json"):
+        try:
+            data = json.loads(report_path.read_text(encoding="utf-8"))
+            exc = data.get("exception", {})
+            type_counts[exc.get("type", "Unknown")] += 1
+            frames = data.get("frames", [])
+            if frames:
+                site = f"{frames[0].get('file', '?')}:{frames[0].get('line', '?')}"
+                site_counts[site] += 1
+            ts = data.get("timestamp", "")
+            if ts:
+                day_counts[ts[:10]] += 1
+            total += 1
+        except (json.JSONDecodeError, OSError):
+            continue
+
+    return {
+        "total": total,
+        "by_type": dict(type_counts.most_common(10)),
+        "by_day": dict(sorted(day_counts.items())),
+        "by_site": dict(site_counts.most_common(10)),
+    }
