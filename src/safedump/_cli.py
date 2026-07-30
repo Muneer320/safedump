@@ -1,15 +1,11 @@
 """CLI entry point for Safedump.
 
 Usage:
-    safedump view [--json] [FILE]    View a crash report
+    safedump view [--json] [--html [FILE]] [FILE]
     safedump list           List recent crashes
     safedump test            Self-test
     safedump --version       Show version
 """
-
-# SPDX-FileCopyrightText: 2026 Muneer Alam
-#
-# SPDX-License-Identifier: MIT
 
 from __future__ import annotations
 
@@ -17,7 +13,9 @@ import argparse
 import json
 import sys
 from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
 
+from safedump._html_render import render_html
 from safedump._loader import clean_older_than, find_latest, list_reports, load_report
 from safedump._render import render
 
@@ -43,6 +41,13 @@ def main() -> None:
         action="store_true",
         help="Print raw JSON instead of Rich-formatted output",
     )
+    view_parser.add_argument(
+        "--html",
+        metavar="OUTPUT",
+        nargs="?",
+        const=None,
+        help="Generate HTML report (optionally specify output file path)",
+    )
 
     # safedump list
     list_parser = subparsers.add_parser("list", help="List recent crash reports")
@@ -59,7 +64,7 @@ def main() -> None:
     )
 
     # safedump test
-    subparsers.add_parser("test", help="Self-test — verify safedump is working")
+    subparsers.add_parser("test", help="Self-test -- verify safedump is working")
 
     args = parser.parse_args()
 
@@ -68,7 +73,7 @@ def main() -> None:
         sys.exit(1)
 
     if args.command == "view":
-        _cmd_view(args.file, as_json=args.json)
+        _cmd_view(args.file, as_json=args.json, html_path=args.html)
     elif args.command == "list":
         _cmd_list(args.count)
     elif args.command == "clean":
@@ -77,13 +82,12 @@ def main() -> None:
         _cmd_test()
 
 
-def _cmd_view(file: str | None, *, as_json: bool = False) -> None:
+def _cmd_view(file: str | None, *, as_json: bool = False, html_path: str | None = None) -> None:
     """Handle the 'view' subcommand."""
     try:
         if file:
             report = load_report(file)
         else:
-            # Find latest from default output dir
             from safedump._config import get_config
 
             latest = find_latest(get_config().output_dir)
@@ -91,10 +95,15 @@ def _cmd_view(file: str | None, *, as_json: bool = False) -> None:
                 print("No crash reports found.", file=sys.stderr)
                 sys.exit(1)
             report = load_report(latest)
-            if not as_json:
+            if not as_json and html_path is None:
                 print(f"Viewing: {latest}")
 
-        if as_json:
+        if html_path is not None:
+            output_path = Path(html_path)
+            html_content = render_html(report)
+            output_path.write_text(html_content, encoding="utf-8")
+            print(f"HTML report saved: {output_path}")
+        elif as_json:
             print(json.dumps(report, indent=2))
         else:
             render(report)
@@ -123,9 +132,11 @@ def _cmd_list(count: int) -> None:
             report = load_report(path)
             exc_type = report.get("exception", {}).get("type", "?")
             ts = report.get("timestamp", "?")[:19]
-            print(f"  {i}. {ts}  {exc_type}  {path}")
-        except Exception:
-            print(f"  {i}. (unreadable)  {path}")
+            fp = report.get("fingerprint", "")
+            fp_str = f" [{fp}]" if fp else ""
+            print(f"  {i}. {ts}  {exc_type}{fp_str}  {path}")
+        except (ValueError, FileNotFoundError) as e:
+            print(f"  {i}. [error: {e}]  {path}")
 
 
 def _cmd_clean(days: int) -> None:
@@ -133,24 +144,16 @@ def _cmd_clean(days: int) -> None:
     from safedump._config import get_config
 
     deleted = clean_older_than(get_config().output_dir, days)
-    print(f"Deleted {deleted} crash report(s) older than {days} day(s).")
+    print(f"Deleted {deleted} crash report(s) older than {days} days.")
 
 
 def _cmd_test() -> None:
     """Handle the 'test' subcommand."""
-    try:
-        from safedump._capture import test
-    except ImportError:
-        print("Error: safedump is not installed. Run: pip install safedump", file=sys.stderr)
-        sys.exit(1)
+    from safedump._capture import test
 
-    try:
-        path = test()
-        if path:
-            print(f"✅ Safedump is working. Test report: {path}")
-        else:
-            print("❌ Safedump test failed — could not write report.", file=sys.stderr)
-            sys.exit(1)
-    except RuntimeError as e:
-        print(f"❌ {e}", file=sys.stderr)
+    path = test()
+    if path is not None:
+        print(f"Self-test passed. Crash report saved: {path}")
+    else:
+        print("Self-test failed.", file=sys.stderr)
         sys.exit(1)
