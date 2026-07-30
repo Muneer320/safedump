@@ -1,6 +1,23 @@
 # Changelog
 
-## [1.2.0] — 2026-07-30
+## [2.0.0] — 2026-07-30
+
+### Added
+- **Complete documentation site** — 17 pages with MkDocs + Material theme
+- **Deprecation policy** — formal API deprecation timeline
+- **API freeze** — 12 public symbols stabilized, `__all__` frozen
+
+### Changed
+- Public API is now frozen. No breaking changes without a deprecation cycle.
+- All modules reviewed for type correctness (mypy strict).
+
+### Docs
+- MkDocs documentation site with 17 pages covering all features
+- Architecture documentation with pipeline diagram
+- Security & Privacy guide with redaction layers
+- Migration guide for all versions v1.0 through v2.0
+
+## [1.3.0] — 2026-07-30
 
 ### Added
 - **HTML crash report export** — `safedump view --html [output.html]` generates a self-contained crash report viewer (no external resources, dark theme) (by @Foaly)

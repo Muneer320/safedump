@@ -128,7 +128,7 @@ class TestFingerprint:
 
     def test_default_construction(self):
         report = CrashReport()
-        assert report.safedump_version == "1.2.0"
+        assert report.safedump_version == "2.0.0"
         assert len(report.frames) == 0
         assert len(report.redactions) == 0
 

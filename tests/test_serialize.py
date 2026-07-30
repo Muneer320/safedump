@@ -15,7 +15,7 @@ class TestSerialize:
         result = serialize(report, config)
         assert isinstance(result, str)
         parsed = json.loads(result)
-        assert parsed["safedump_version"] == "1.2.0"
+        assert parsed["safedump_version"] == "2.0.0"
         assert "frames" in parsed
         assert "exception" in parsed
 
