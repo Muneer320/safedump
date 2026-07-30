@@ -129,7 +129,7 @@ def save(json_str: str, config: SafedumpConfig, report: CrashReport) -> Path | N
     # Determine content and filename based on compression setting
     if config.compress:
         json_bytes = json_str.encode("utf-8")
-        content_to_write = gzip.compress(json_bytes)
+        content_to_write: str | bytes = gzip.compress(json_bytes)
         # Use .safedump.json.gz extension for compressed files
         if not filename.endswith(".gz"):
             filename += ".gz"

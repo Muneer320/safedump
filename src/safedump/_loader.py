@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from safedump._types import CRASH_REPORT_SCHEMA_VERSION
 
@@ -88,7 +88,7 @@ def load_report(path: str | Path) -> dict[str, Any]:
             data = MIGRATIONS[v](data)
         data["schema_version"] = v + 1
 
-    return data
+    return cast(dict[str, Any], data)
 
 
 def find_latest(output_dir: str | Path) -> Path | None:
@@ -278,9 +278,9 @@ def compute_stats(output_dir: str | Path) -> dict[str, Any]:
 
     from collections import Counter
 
-    type_counts: Counter = Counter()
-    day_counts: Counter = Counter()
-    site_counts: Counter = Counter()
+    type_counts: Counter[str] = Counter()
+    day_counts: Counter[str] = Counter()
+    site_counts: Counter[str] = Counter()
     total = 0
 
     for report_path in directory.glob("*.safedump.json"):

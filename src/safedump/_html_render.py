@@ -291,7 +291,7 @@ def crash_marker(is_crash: bool) -> str:
     return ""
 
 
-def h2_redactions(redactions_html: str, redactions: list) -> str:
+def h2_redactions(redactions_html: str, redactions: list[Any]) -> str:
     """Conditionally render redactions section."""
     if not redactions:
         return ""

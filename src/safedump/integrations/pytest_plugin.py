@@ -13,11 +13,12 @@ Usage:
 from __future__ import annotations
 
 import contextlib
+from typing import Any
 
 from safedump import capture_exception
 
 
-def pytest_runtest_makereport(item, call):
+def pytest_runtest_makereport(item: Any, call: Any) -> None:
     """Capture crash reports when a test raises an unexpected exception."""
     if call.excinfo is not None and call.excinfo.value is not None:
         with contextlib.suppress(BaseException):

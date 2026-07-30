@@ -32,13 +32,15 @@ import safedump
 
 safedump.install()
 # ... your application runs, crashes ...
-# Crash report saved: ~/.safedump/crash-2026-06-25-123456-TypeError-a1b2c3.json
+# Crash report saved: ~/.safedump/crash-2026-06-25-123456-TypeError-a1b2c3.safedump.json
 ```
 
 Then inspect it anytime:
 
 ```bash
-$ safedump view
+safedump view              # Terminal (Rich)
+safedump view --html       # Self-contained HTML file
+safedump serve             # Local web browser UI
 ```
 
 ## Why Safedump?
@@ -51,34 +53,13 @@ $ safedump view
 | "Which thread crashed?" | Guess from log timestamps | Thread state captured at crash time |
 | "Works on my machine" | SSH in, check environment | Environment metadata in every report |
 
-## How is it different?
-
-| Feature | safedump | rich.traceback | stackprinter | Sentry SDK |
-|---|---|---|---|---|
-| **Local-first** | ✅ | ✅ | ✅ | ❌ (cloud) |
-| **Offline crash reports** | ✅ (JSON files) | ❌ | ❌ | ❌ |
-| **Secret redaction** | ✅ (built-in) | ❌ | ❌ | ✅ (configurable) |
-| **CLI viewer** | ✅ | ✅ (terminal) | ❌ | ❌ |
-| **Privacy tiers** | ✅ (0–4) | ❌ | ❌ | ❌ |
-| **Plugin system** | ✅ | ❌ | ❌ | ✅ |
-| **ExceptionGroup support** | ✅ | ❌ | ❌ | ✅ |
-| **Cross-thread capture** | ✅ | ❌ | ❌ | ✅ |
-| **Shareable reports** | ✅ | ❌ (plain text) | ❌ (plain text) | ✅ (cloud only) |
-
 ## Quick Start
 
 ### Installation
 
-For the full experience (terminal viewer):
-
 ```bash
-pip install safedump[view]
-```
-
-Minimal install (no dependencies):
-
-```bash
-pip install safedump
+pip install safedump[view]    # with Rich terminal viewer
+pip install safedump           # minimal (no dependencies)
 ```
 
 ### One-line setup
@@ -91,36 +72,6 @@ safedump.install()
 
 That's it. Every unhandled exception now produces a crash report.
 
-### What a crash report looks like
-
-```
-$ safedump view
-╭───────────────────────────────── Exception ──────────────────────────────────╮
-│ ZeroDivisionError: division by zero                                          │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ app.py:13 in <module>                                                        │
-╰──────────────────────────────────────────────────────────────────────────────╯
-┏━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Variable  ┃ Type     ┃ Value                          ┃
-┡━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ safedump  │ module   │ <module 'safedump'>            │
-│ calculate │ function │ <function calculate at 0x...>  │
-└───────────┴──────────┴────────────────────────────────┘
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ app.py:10 in calculate                                                       │
-╰──────────────────────────────────────────────────────────────────────────────╯
-┏━━━━━━━━━━┳━━━━━━┳━━━━━━━┓
-┃ Variable ┃ Type ┃ Value ┃
-┡━━━━━━━━━━╇━━━━━━╇━━━━━━━┩
-│ orders   │ list │ []    │
-│ total    │ int  │ 0     │
-└──────────┴──────┴───────┘
-╭─────────────────────────────── Environment ────────────────────────────────╮
-│ OS: posix | Python: 3.11 | Platform: linux | CWD: /app                     │
-╰─────────────────────────────────────────────────────────────────────────────╯
-```
-
 ### Manual capture
 
 ```python
@@ -128,7 +79,7 @@ try:
     result = dangerous_operation()
 except Exception:
     path = safedump.capture_exception()
-    print(f"Crash captured: {path}")  # share this file
+    print(f"Crash captured: {path}")
     raise
 ```
 
@@ -136,8 +87,8 @@ except Exception:
 
 ### 🔒 Privacy First
 - **Zero cloud** — no network calls, no telemetry, no accounts
-- **Secret redaction** — passwords, tokens, and API keys automatically scrubbed
-- **Privacy tiers** — configure exactly what gets captured
+- **Secret redaction** — denylist (variable names) + regex (credentials) + entropy-based detection
+- **Privacy tiers** — configure exactly what gets captured (levels 0-4)
 - **File permissions** — reports saved with `0600` (owner-only)
 
 ### 📋 Rich Debugging Context
@@ -149,66 +100,53 @@ except Exception:
 ### 🎨 Developer Experience
 - **One-line install** — `import safedump; safedump.install()`
 - **Beautiful terminal viewer** — Rich-powered with syntax highlighting
-- **CLI tools** — `view`, `list`, `clean`, `test`
+- **Self-contained HTML export** — `safedump view --html report.html`
+- **Local web server** — `safedump serve` for browsing reports in the browser
+- **CLI filtering** — `safedump list --type KeyError --since 7d --search error`
+- **Crash statistics** — `safedump stats` for aggregate data
+- **Diagnostics** — `safedump doctor` checks configuration integrity
 - **Config presets** — `configure(preset="production")`
 
 ### 🔧 Extensible
-- **Plugin system** — `register_serializer()` for custom types
+- **Custom serialization** — `register_serializer()` for non-standard types
 - **Custom redaction** — `RedactionRule` for domain-specific scrubbing
 - **`before_capture` hook** — pre-processing before report generation
+- **`on_crash` hook** — callback invoked after each capture (file notification, etc.)
+- **pytest integration** — auto-capture on test failures
+- **Click/Typer integration** — `@wrap_click()` decorator
+
+## CLI Reference
+
+```bash
+safedump view [file]              # View crash report (Rich terminal)
+safedump view --json [file]        # View as raw JSON
+safedump view --html [output]      # Export as self-contained HTML
+safedump list [--count] [--type] [--since] [--search]
+safedump stats                     # Aggregate crash statistics
+safedump doctor [--verbose]        # Diagnose common issues
+safedump serve [--port] [--host]   # Start local web server
+safedump clean --older-than DAYS   # Delete old reports
+safedump test                      # Verify installation
+```
 
 ## Configuration
 
 ```python
 safedump.configure(
-    preset="production",  # or "development", "debug", "minimal"
-    output_dir="./crashes",  # where to save reports
+    preset="production",  # "development", "debug", "minimal"
+    output_dir="./crashes",
     privacy_tier=1,  # 0=minimal, 1=default, 4=everything
+    enable_entropy_detection=True,  # Shannon entropy-based secret detection
+    compress=True,  # Gzip compressed crash reports
+    on_crash=my_notification_handler,  # Callback after each capture
 )
 ```
 
-## CLI Commands
+## Documentation
 
-```bash
-safedump view                    # View latest crash report
-safedump view crash.json         # View specific report
-safedump view --json             # View as raw JSON (pipe to jq)
-safedump list                    # List recent crashes
-safedump list --count 10         # Last 10 crashes
-safedump clean --older-than 30   # Delete reports older than 30 days
-safedump test                    # Verify installation
-```
+Full documentation at **[safedump.dev](https://Muneer320.github.io/safedump)** (coming with v2.0).
 
-## FAQ
-
-**Does Safedump send data anywhere?**
-No. Safedump is completely offline. It never makes network connections. Crash reports are stored locally on your filesystem.
-
-**Is it safe to share crash reports?**
-Yes (after review). By default, Safedump redacts variable names like `password`, `token`, and `secret`, and detects credential patterns (AWS keys, GitHub tokens, JWTs). The report includes a redaction audit trail. Still, always review before sharing publicly.
-
-**What's the performance overhead?**
-Zero during normal execution. Safedump only runs when an unhandled exception occurs. Crash capture takes <30ms for typical 20-frame tracebacks.
-
-**What Python versions?**
-3.9 through 3.13. Tested on all versions in CI.
-
-**Can I use this in production?**
-Yes. Use `configure(preset="production")` (privacy tier 1, no env capture, no argv). Safedump is designed to fail gracefully — if the handler itself crashes, the original traceback is always preserved.
-
-## Supported Python Versions
-
-| Python | Status |
-|---|---|
-| 3.9 | ✅ |
-| 3.10 | ✅ |
-| 3.11 | ✅ |
-| 3.12 | ✅ |
-| 3.13 | ✅ |
-
-## Platform Support
-
-Safedump is tested and fully supported on Windows, macOS, and Linux.
+## Supported Platforms
 
 | Platform | Status | Notes |
 |---|---|---|
@@ -216,28 +154,14 @@ Safedump is tested and fully supported on Windows, macOS, and Linux.
 | macOS | ✅ | Fully supported |
 | Windows | ✅ | Verified on Windows 11, Python 3.13 |
 
-**Windows-specific notes:**
-
-- Crash reports are saved under `%USERPROFILE%\.safedump` by default (equivalent to `~/.safedump` on Unix).
-- If the primary output directory is unavailable, Safedump falls back to your system's temp directory (`tempfile.gettempdir()`), not a hardcoded `/tmp` path.
-- Colored, Rich-formatted output works in PowerShell, Command Prompt, and Windows Terminal. If [Rich](https://github.com/Textualize/rich) is not installed, Safedump automatically falls back to clean plain-text output — no crashes, no garbled characters.
-- Box-drawing characters used by Rich (panels, tables) render correctly in modern Windows terminals.
-
-## Roadmap
-
-- **v1.1** — HTML export, `safedump serve`, entropy-based redaction
-- **v1.2** — Windows first-class support, logging integration
-- **v1.3** — Framework guides (Flask, FastAPI, Django)
-- **v2.0** — Plugin ecosystem, third-party type packages
-
-See [ROADMAP.md](ROADMAP.md) for details.
+**Python versions:** 3.9 through 3.13.
 
 ## Contributing
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
-**Looking for a place to start?** Check out [good first issues](https://github.com/Muneer320/safedump/labels/good%20first%20issue).
+**Looking for a place to start?** Check out [open issues](https://github.com/Muneer320/safedump/issues) with the `good first issue` label.
 
 ## License
 
-MIT © [Muneer Alam](https://github.com/Muneer320)
+MIT &copy; [Muneer Alam](https://github.com/Muneer320)

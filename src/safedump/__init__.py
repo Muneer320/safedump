@@ -60,9 +60,6 @@ from safedump._types import RedactionRule
 from safedump.watch import _Watch
 from safedump.watch import watch as _watch
 
-# All public functions are placeholders — implementation begins in M1.
-# They exist so the package imports successfully and IDEs show completions.
-
 
 def configure(
     *,
@@ -84,6 +81,23 @@ def configure(
     """Configure Safedump globally. Call before :func:`install`.
 
     All parameters are keyword-only. Validates eagerly.
+
+    Args:
+        preset: Configuration preset (``\"production\"``, ``\"development\"``,
+            ``\"debug\"``, ``\"minimal\"``). Overrides individual parameters.
+        output_dir: Directory for crash report files. Default ``~/.safedump``.
+        privacy_tier: Capture detail level 0-4. Higher captures more.
+        include_env_names: Include environment variable names (not values).
+        include_argv: Include command-line arguments in reports.
+        max_string_length: Maximum length for captured string values.
+        max_collection_items: Maximum items from collections.
+        max_depth: Maximum depth for nested object serialization.
+        redaction_rules: Additional redaction rules (strings or RedactionRule).
+        before_capture: Callback invoked before report generation.
+        enable_entropy_detection: Enable Shannon entropy-based secret detection.
+        entropy_threshold: Entropy threshold in bits/char (default 4.5).
+        compress: Write reports as gzip-compressed JSON (``.json.gz``).
+        on_crash: Callable invoked with report path after each capture.
     """
     _configure(
         output_dir=output_dir,
@@ -180,7 +194,22 @@ def test() -> Path | None:
 
 
 def load_report(path: str | Path) -> dict[str, Any]:
-    """Load a Safedump crash report as a Python dict."""
+    """Load a Safedump crash report as a Python dict.
+
+    Supports both ``.safedump.json`` and ``.safedump.json.gz`` files.
+    Gzip files are transparently decompressed on read.
+
+    Args:
+        path: Path to a crash report file.
+
+    Returns:
+        Parsed report dict with all fields migrated to the current
+        schema version.
+
+    Raises:
+        FileNotFoundError: If *path* does not exist.
+        ValueError: If the file is not a valid Safedump report.
+    """
     return _load_report(path)
 
 
