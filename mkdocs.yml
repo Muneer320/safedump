@@ -1,0 +1,50 @@
+site_name: Safedump
+site_description: Local-first crash diagnostics for Python. Capture debugging context, redact secrets, inspect crashes offline.
+site_url: https://muneer320.github.io/safedump
+repo_url: https://github.com/Muneer320/safedump
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: indigo
+    accent: indigo
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Configuration: getting-started/configuration.md
+  - CLI Reference: cli.md
+  - Python API: api.md
+  - Crash Report Format: report-format.md
+  - HTML Export: html-export.md
+  - Local Web Server: web-server.md
+  - Integrations: integrations.md
+  - Architecture: architecture.md
+  - Security & Privacy: security.md
+  - Migration Guide: migration.md
+  - Contributing: contributing.md
+  - FAQ: faq.md
+  - Changelog: changelog.md
+  - Deprecation Policy: deprecation_policy.md
