@@ -52,6 +52,14 @@ def main() -> None:
     # safedump list
     list_parser = subparsers.add_parser("list", help="List recent crash reports")
     list_parser.add_argument("--count", type=int, default=20, help="Number of reports to show")
+    list_parser.add_argument(
+        "--type", dest="type_filter", help="Filter by exception type (substring, case-insensitive)"
+    )
+    list_parser.add_argument(
+        "--since", help="Show reports after this date (ISO: 2026-07-01, or duration: 7d, 24h, 30m)"
+    )
+    list_parser.add_argument("--until", help="Show reports before this date (ISO or duration)")
+    list_parser.add_argument("--search", help="Search in exception type, message, and filename")
 
     # safedump clean
     clean_parser = subparsers.add_parser("clean", help="Delete old crash reports")
@@ -75,7 +83,13 @@ def main() -> None:
     if args.command == "view":
         _cmd_view(args.file, as_json=args.json, html_path=args.html)
     elif args.command == "list":
-        _cmd_list(args.count)
+        _cmd_list(
+            args.count,
+            type_filter=args.type_filter,
+            since=args.since,
+            until=args.until,
+            search=args.search,
+        )
     elif args.command == "clean":
         _cmd_clean(args.older_than)
     elif args.command == "test":
@@ -116,11 +130,25 @@ def _cmd_view(file: str | None, *, as_json: bool = False, html_path: str | None 
         sys.exit(1)
 
 
-def _cmd_list(count: int) -> None:
+def _cmd_list(
+    count: int,
+    *,
+    type_filter: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    search: str | None = None,
+) -> None:
     """Handle the 'list' subcommand."""
     from safedump._config import get_config
 
-    reports = list_reports(get_config().output_dir, count=count)
+    reports = list_reports(
+        get_config().output_dir,
+        count=count,
+        type_filter=type_filter,
+        since=since,
+        until=until,
+        search=search,
+    )
 
     if not reports:
         print("No crash reports found.")

@@ -101,12 +101,24 @@ def find_latest(output_dir: str | Path) -> Path | None:
     return reports[0] if reports else None
 
 
-def list_reports(output_dir: str | Path, count: int = 20) -> list[Path]:
-    """List recent crash reports.
+def list_reports(
+    output_dir: str | Path,
+    count: int = 20,
+    *,
+    type_filter: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    search: str | None = None,
+) -> list[Path]:
+    """List recent crash reports, with optional filters.
 
     Args:
         output_dir: Directory to scan.
         count: Maximum number of reports to return.
+        type_filter: Only include reports with this exception type (case-insensitive substring).
+        since: ISO-8601 date or human-readable like "7d" (only reports after this time).
+        until: ISO-8601 date or human-readable like "24h" (only reports before this time).
+        search: Search string (matched against exception type, message, and filename).
 
     Returns:
         List of report paths, newest first.
@@ -120,7 +132,98 @@ def list_reports(output_dir: str | Path, count: int = 20) -> list[Path]:
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
+
+    # Apply filters
+    if type_filter or since or until or search:
+        filtered: list[Path] = []
+        for report_path in reports:
+            try:
+                data = json.loads(report_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                continue
+            exc = data.get("exception", {})
+
+            if type_filter:
+                exc_type = exc.get("type", "").lower()
+                if type_filter.lower() not in exc_type:
+                    continue
+            if search:
+                search_lower = search.lower()
+                exc_type = exc.get("type", "").lower()
+                exc_msg = exc.get("message", "").lower()
+                fname = report_path.name.lower()
+                if (
+                    search_lower not in exc_type
+                    and search_lower not in exc_msg
+                    and search_lower not in fname
+                ):
+                    continue
+            if since or until:
+                ts = _parse_time_filter(since, until)
+                if ts is not None:
+                    mtime = report_path.stat().st_mtime
+                    min_ts, max_ts = ts
+                    if min_ts is not None and mtime < min_ts:
+                        continue
+                    if max_ts is not None and mtime > max_ts:
+                        continue
+            filtered.append(report_path)
+        reports = filtered
+
     return reports[:count]
+
+
+def _parse_time_filter(
+    since: str | None, until: str | None
+) -> tuple[float | None, float | None] | None:
+    """Parse human-readable time filters into Unix timestamps.
+
+    Returns (min_time, max_time) tuple where None means unbounded.
+    """
+    import time as time_module
+
+    now = time_module.time()
+    min_ts: float | None = None
+    max_ts: float | None = None
+
+    if since:
+        min_ts = _parse_time_str(since, now)
+    if until:
+        max_ts = _parse_time_str(until, now)
+
+    if since is None and until is None:
+        return None
+    return (min_ts, max_ts)
+
+
+def _parse_time_str(value: str, now: float) -> float:
+    """Parse a human-readable time string into a Unix timestamp.
+
+    Supports: ISO-8601 (2026-07-01), human durations (7d, 24h, 30m).
+    """
+    value = value.strip()
+
+    # Human-readable durations
+    if value.endswith("d"):
+        days = float(value[:-1])
+        return now - (days * 86400)
+    if value.endswith("h"):
+        hours = float(value[:-1])
+        return now - (hours * 3600)
+    if value.endswith("m"):
+        minutes = float(value[:-1])
+        return now - (minutes * 60)
+
+    # ISO-8601 date
+    from datetime import datetime
+
+    try:
+        dt = datetime.fromisoformat(value)
+        return dt.timestamp()
+    except ValueError:
+        raise ValueError(
+            f"Invalid time format: '{value}'. Use ISO date (2026-07-01) or duration (7d, 24h, 30m)."
+        ) from None
 
 
 def clean_older_than(output_dir: str | Path, days: int) -> int:
