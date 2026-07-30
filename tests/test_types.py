@@ -7,7 +7,7 @@
 
 import pytest
 
-from safedump._capture import compute_fingerprint
+from safedump._frame_walker import compute_fingerprint
 from safedump._types import (
     CrashReport,
     ExceptionSnapshot,

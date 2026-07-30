@@ -15,13 +15,14 @@ from __future__ import annotations
 import sys
 
 from safedump import _capture
+from safedump._frame_walker import walk_traceback
 
 
 class TestEmptyTracebackHandling:
     def test_none_traceback_returns_empty_list(self) -> None:
         """A None traceback (e.g. a manually constructed exception with no
-        __traceback__) must not raise â€” it should walk to an empty list."""
-        frames = _capture._walk_traceback(None)
+        __traceback__) must not raise -- it should walk to an empty list."""
+        frames = walk_traceback(None)
         assert frames == []
 
     def test_capture_exception_with_no_traceback(self, tmp_path) -> None:
@@ -47,7 +48,7 @@ class TestMemoryErrorHandling:
         def _boom(*args, **kwargs):
             raise MemoryError("simulated allocation failure")
 
-        monkeypatch.setattr(_capture, "_capture_environment", _boom)
+        monkeypatch.setattr("safedump._capture.capture_environment", _boom)
 
         try:
             raise ValueError("original crash")
