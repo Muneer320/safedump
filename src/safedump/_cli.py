@@ -85,6 +85,15 @@ def main() -> None:
     # safedump stats
     subparsers.add_parser("stats", help="Show aggregate crash statistics")
 
+    # safedump serve
+    serve_parser = subparsers.add_parser(
+        "serve", help="Start a local web server for browsing crash reports"
+    )
+    serve_parser.add_argument("--port", type=int, default=4567, help="Port number (default: 4567)")
+    serve_parser.add_argument(
+        "--host", type=str, default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)"
+    )
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -107,6 +116,8 @@ def main() -> None:
         _cmd_doctor(args.verbose)
     elif args.command == "stats":
         _cmd_stats()
+    elif args.command == "serve":
+        _cmd_serve(host=args.host, port=args.port)
     elif args.command == "test":
         _cmd_test()
 
@@ -200,6 +211,13 @@ def _cmd_test() -> None:
     else:
         print("Self-test failed.", file=sys.stderr)
         sys.exit(1)
+
+
+def _cmd_serve(*, host: str = "127.0.0.1", port: int = 4567) -> None:
+    """Handle the 'serve' subcommand."""
+    from safedump._server import serve as _serve
+
+    _serve(host=host, port=port)
 
 
 def _cmd_stats() -> None:
