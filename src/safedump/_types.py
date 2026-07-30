@@ -18,7 +18,7 @@ from typing import Any, Callable, NamedTuple
 
 # ── Version ──────────────────────────────────────────────────────────
 
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 CRASH_REPORT_SCHEMA_VERSION = 1
 
 # ── Configuration ────────────────────────────────────────────────────

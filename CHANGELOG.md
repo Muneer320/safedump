@@ -1,8 +1,29 @@
 # Changelog
 
-## [Unreleased]
+## [1.2.0] — 2026-07-30
+
 ### Added
-- **`watch()` context manager** — scoped crash monitoring for a specific code block without installing global exception hooks; supports `privacy_tier` and `output_dir` overrides (by @Diyaaa-12)
+- **HTML crash report export** — `safedump view --html [output.html]` generates a self-contained crash report viewer (no external resources, dark theme) (by @Foaly)
+- **Local web server** — `safedump serve` starts a web UI for browsing reports via `http.server`, reuses HTML renderer (by @Foaly)
+- **CLI report filtering** — `safedump list --type KeyError --since 7d --search error` with human-readable time formats (by @Foaly)
+- **`safedump doctor`** — diagnostic command with 5 checks (Python version, output dir, hooks, report integrity, Rich availability) (by @Foaly)
+- **`safedump stats`** — aggregate crash statistics with ASCII bar charts (by @Foaly)
+- **Crash fingerprint** — stable SHA256 fingerprint per crash, displayed in list output, included in report JSON (by @Foaly)
+- **Schema version** — `schema_version` field added to report format (v1), migration framework for forward compatibility (by @Foaly)
+- **Extended data model** — `occurrence_count`, `first_seen`, `last_seen` fields for future deduplication (by @Foaly)
+- **`__main__.py`** — allow `python -m safedump` usage (by @Foaly)
+
+### Changed
+- **`_capture.py` split** — frame walking extracted to `_frame_walker.py` (206 lines), hook management in `_capture.py` (264 lines) (by @Foaly)
+- **`metadata` field** — type widened from `dict[str, str]` to `dict[str, Any]` (by @Foaly)
+- **Migration framework** — old v0 reports auto-migrated on load via `_loader.py` (by @Foaly)
+
+### Tests
+- **173 tests** (up from 107) — 66 new tests across capture engine, frame walker, HTML renderer, loader, and CLI
+- **Capture engine coverage** — from ~18% to ~75%
+- **CLI tests** — smoke tests for all subcommands (view, list, clean, test, doctor, stats, serve)
+- **HTML renderer tests** — 20 tests: XSS prevention, external URL detection, Unicode, empty state
+- **Migration tests** — v0-to-v1 schema migration verified
 
 ## [1.1.0] — 2026-07-09
 
