@@ -99,11 +99,16 @@ def _write_atomic(output_dir: Path, filename: str, content: str) -> Path | None:
 def save(json_str: str, config: SafedumpConfig, report: CrashReport) -> Path | None:
     """Write a crash report JSON string to disk.
 
-    1. Generates a safe filename from the crash report.
-    2. Ensures the output directory exists (0o700).
-    3. Writes the JSON atomically (tempfile + rename).
-    4. Sets file permissions to 0o600.
-    5. Falls back to system temp directory if primary output_dir fails.
+    If a report with the same fingerprint already exists, increments
+    its occurrence_count and updates last_seen instead of creating a
+    new file (deduplication).
+
+    1. Checks for existing reports with same fingerprint.
+    2. Generates a safe filename from the crash report.
+    3. Ensures the output directory exists (0o700).
+    4. Writes the JSON atomically (tempfile + rename).
+    5. Sets file permissions to 0o600.
+    6. Falls back to system temp directory if primary output_dir fails.
 
     Args:
         json_str: JSON string to write.
@@ -113,7 +118,28 @@ def save(json_str: str, config: SafedumpConfig, report: CrashReport) -> Path | N
     Returns:
         Path to the written file, or None if all write attempts failed.
     """
+    import json as _json
+
     filename = generate_filename(report)
+
+    # Check for existing report with same fingerprint (dedup)
+    if report.fingerprint:
+        existing = _find_existing_by_fingerprint(config.output_dir, report.fingerprint)
+        if existing is not None:
+            try:
+                # Load existing report, increment occurrence count
+                data = _json.loads(existing.read_text(encoding="utf-8"))
+                data["occurrence_count"] = data.get("occurrence_count", 1) + 1
+                data["last_seen"] = report.timestamp
+                # Re-serialize and write back
+                updated_json = _json.dumps(data, indent=2, ensure_ascii=False)
+                primary_dir = _ensure_output_dir(config.output_dir)
+                if primary_dir is not None:
+                    result = _write_atomic(primary_dir, existing.name, updated_json)
+                    if result is not None:
+                        return result
+            except (OSError, _json.JSONDecodeError):
+                pass  # Fall through to normal save if dedup fails
 
     # Primary path
     primary_dir = _ensure_output_dir(config.output_dir)
@@ -131,3 +157,30 @@ def save(json_str: str, config: SafedumpConfig, report: CrashReport) -> Path | N
             return result
 
     return None
+
+
+def _find_existing_by_fingerprint(output_dir: Path, fingerprint: str) -> Path | None:
+    """Find an existing report file with the given fingerprint.
+
+    Scans the output directory for reports whose JSON contains the
+    matching fingerprint. Returns the most recently modified match.
+    """
+    import json as _json
+
+    if not output_dir.exists():
+        return None
+
+    candidates = []
+    for p in output_dir.glob("*.safedump.json"):
+        try:
+            data = _json.loads(p.read_text(encoding="utf-8"))
+            if data.get("fingerprint") == fingerprint:
+                candidates.append(p)
+        except (OSError, _json.JSONDecodeError):
+            continue
+
+    if not candidates:
+        return None
+    # Return most recently modified
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return candidates[0]

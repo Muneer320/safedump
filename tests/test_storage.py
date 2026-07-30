@@ -13,7 +13,7 @@ import pytest
 
 from safedump._config import SafedumpConfig
 from safedump._storage import _sanitize_filename_component, generate_filename, save
-from safedump._types import CrashReport, ExceptionSnapshot
+from safedump._types import CrashReport, ExceptionSnapshot, FrameSnapshot
 
 
 class TestSanitizeFilename:
@@ -58,8 +58,105 @@ class TestGenerateFilename:
         assert f1 != f2
 
 
-class TestSave:
-    def test_writes_file(self, tmp_path):
+class TestDeduplication:
+    """Crash report deduplication tests."""
+
+    def test_dedup_with_same_fingerprint(self, tmp_path):
+        """Two saves with the same fingerprint should reuse the same file."""
+        from safedump._serialize import serialize
+        from safedump._storage import save
+
+        config = SafedumpConfig(output_dir=tmp_path)
+
+        # Create two reports with the same fingerprint
+        r1 = CrashReport(
+            exception=ExceptionSnapshot(type="ValueError", message="same"),
+            frames=[FrameSnapshot(index=0, file="test.py", line=42, function="main", lineno=42)],
+        )
+        r1.fingerprint = "deduptest0001"
+        r2 = CrashReport(
+            exception=ExceptionSnapshot(type="ValueError", message="same"),
+            frames=[FrameSnapshot(index=0, file="test.py", line=42, function="main", lineno=42)],
+        )
+        r2.fingerprint = "deduptest0001"
+
+        path1 = save(serialize(r1, config), config, r1)
+        path2 = save(serialize(r2, config), config, r2)
+
+        assert path1 == path2, "Same fingerprint should reuse the same file"
+
+    def test_dedup_updates_occurrence_count(self, tmp_path):
+        """Repeated dedup saves should increment occurrence_count."""
+        import json
+
+        from safedump._serialize import serialize
+        from safedump._storage import save
+
+        config = SafedumpConfig(output_dir=tmp_path)
+
+        for _ in range(3):
+            r = CrashReport(
+                exception=ExceptionSnapshot(type="ValueError", message="counted"),
+                frames=[
+                    FrameSnapshot(index=0, file="test.py", line=42, function="main", lineno=42)
+                ],
+            )
+            r.fingerprint = "testfinger1234"  # same fingerprint
+            result = save(serialize(r, config), config, r)
+
+        assert result is not None
+        data = json.loads(result.read_text())
+        assert data.get("occurrence_count", 0) == 3
+
+    def test_dedup_updates_last_seen(self, tmp_path):
+        """Repeated saves should update last_seen."""
+        import json
+
+        from safedump._serialize import serialize
+        from safedump._storage import save
+
+        config = SafedumpConfig(output_dir=tmp_path)
+
+        r1 = CrashReport(
+            timestamp="2026-01-01T00:00:00",
+            exception=ExceptionSnapshot(type="ValueError", message="seen"),
+            frames=[FrameSnapshot(index=0, file="test.py", line=42, function="main", lineno=42)],
+        )
+        r1.fingerprint = "testfinger5678"
+        save(serialize(r1, config), config, r1)
+
+        r2 = CrashReport(
+            timestamp="2026-06-15T12:00:00",
+            exception=ExceptionSnapshot(type="ValueError", message="seen"),
+            frames=[FrameSnapshot(index=0, file="test.py", line=42, function="main", lineno=42)],
+        )
+        r2.fingerprint = "testfinger5678"
+        result = save(serialize(r2, config), config, r2)
+
+        assert result is not None
+        data = json.loads(result.read_text())
+        assert data.get("last_seen") == "2026-06-15T12:00:00"
+
+    def test_different_fingerprints_different_files(self, tmp_path):
+        """Different fingerprints should create separate files."""
+        from safedump._serialize import serialize
+        from safedump._storage import save
+
+        config = SafedumpConfig(output_dir=tmp_path)
+
+        r1 = CrashReport(
+            exception=ExceptionSnapshot(type="ValueError", message="a"),
+            frames=[FrameSnapshot(index=0, file="test.py", line=10, function="main", lineno=10)],
+        )
+        r2 = CrashReport(
+            exception=ExceptionSnapshot(type="KeyError", message="b"),
+            frames=[FrameSnapshot(index=0, file="test.py", line=20, function="other", lineno=20)],
+        )
+
+        path1 = save(serialize(r1, config), config, r1)
+        path2 = save(serialize(r2, config), config, r2)
+
+        assert path1 != path2, "Different fingerprints should create different files"
         config = SafedumpConfig(output_dir=tmp_path / "crashes")
         report = CrashReport(
             exception=ExceptionSnapshot(type="ValueError", message="test"),
