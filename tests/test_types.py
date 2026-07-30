@@ -7,8 +7,10 @@
 
 import pytest
 
+from safedump._capture import compute_fingerprint
 from safedump._types import (
     CrashReport,
+    ExceptionSnapshot,
     FrameSnapshot,
     SafedumpConfig,
     is_denylisted,
@@ -69,7 +71,61 @@ class TestDenylist:
         assert is_denylisted("SecretToken")
 
 
-class TestCrashReport:
+class TestFingerprint:
+    """Fingerprint generation tests."""
+
+    def test_same_report_same_fingerprint(self):
+        r1 = CrashReport(
+            exception=ExceptionSnapshot(type="ValueError", message="test"),
+            frames=[FrameSnapshot(index=0, file="app.py", line=42, function="main", lineno=42)],
+        )
+        r2 = CrashReport(
+            exception=ExceptionSnapshot(type="ValueError", message="test"),
+            frames=[FrameSnapshot(index=0, file="app.py", line=42, function="main", lineno=42)],
+        )
+        f1 = compute_fingerprint(r1)
+        f2 = compute_fingerprint(r2)
+        assert f1 == f2
+
+    def test_different_exception_different_fingerprint(self):
+        r1 = CrashReport(
+            exception=ExceptionSnapshot(type="ValueError", message="test"),
+            frames=[FrameSnapshot(index=0, file="app.py", line=42, function="main", lineno=42)],
+        )
+        r2 = CrashReport(
+            exception=ExceptionSnapshot(type="KeyError", message="missing"),
+            frames=[FrameSnapshot(index=0, file="app.py", line=42, function="main", lineno=42)],
+        )
+        assert compute_fingerprint(r1) != compute_fingerprint(r2)
+
+    def test_different_location_different_fingerprint(self):
+        r1 = CrashReport(
+            exception=ExceptionSnapshot(type="ValueError", message="test"),
+            frames=[FrameSnapshot(index=0, file="app.py", line=42, function="main", lineno=42)],
+        )
+        r2 = CrashReport(
+            exception=ExceptionSnapshot(type="ValueError", message="test"),
+            frames=[FrameSnapshot(index=0, file="app.py", line=99, function="main", lineno=99)],
+        )
+        assert compute_fingerprint(r1) != compute_fingerprint(r2)
+
+    def test_fingerprint_12_chars(self):
+        report = CrashReport(
+            exception=ExceptionSnapshot(type="ValueError", message="test"),
+            frames=[FrameSnapshot(index=0, file="app.py", line=42, function="main", lineno=42)],
+        )
+        fp = compute_fingerprint(report)
+        assert len(fp) == 12
+        assert all(c in "0123456789abcdef" for c in fp)
+
+    def test_fingerprint_no_frames(self):
+        """A report with no frames gets a fingerprint based on exception only."""
+        report = CrashReport(
+            exception=ExceptionSnapshot(type="ValueError", message="no frames"),
+        )
+        fp = compute_fingerprint(report)
+        assert len(fp) == 12
+
     def test_default_construction(self):
         report = CrashReport()
         assert report.safedump_version == "1.0.0"

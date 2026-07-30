@@ -14,6 +14,7 @@ and must always preserve the original traceback.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import os
 import reprlib
 import sys
@@ -50,6 +51,24 @@ _installed: bool = False
 # nested object serialization depth). Set high enough to capture deep
 # tracebacks including asyncio coroutine frames.
 MAX_FRAMES: int = 100
+
+
+def compute_fingerprint(report: CrashReport) -> str:
+    """Generate a stable, deterministic fingerprint for a crash report.
+
+    Based on exception type, message, and crash site (file + line).
+    Same crash in the same location always produces the same fingerprint.
+
+    Returns a 12-character hex string.
+    """
+    digest = hashlib.sha256()
+    digest.update(report.exception.type.encode("utf-8"))
+    digest.update(report.exception.message.encode("utf-8")[:200])
+    if report.frames:
+        first = report.frames[0]
+        digest.update(first.file.encode("utf-8"))
+        digest.update(str(first.line).encode("utf-8"))
+    return digest.hexdigest()[:12]
 
 
 def _safe_repr(obj: Any, max_chars: int = 500) -> str:
@@ -246,6 +265,12 @@ def crash_handler(
             fs = _capture_frame(frame, lineno, i, config)
             report.frames.append(fs)
 
+        # Compute fingerprint after frames are populated
+        report.fingerprint = compute_fingerprint(report)
+        now_iso = report.timestamp
+        report.first_seen = now_iso
+        report.last_seen = now_iso
+
         # Apply before_capture hook (C8)
         if config.before_capture is not None:
             try:
@@ -402,6 +427,12 @@ def capture_exception(
                 if i >= config.max_depth:
                     break
                 report.frames.append(_capture_frame(frame, lineno, i, config))
+
+        # Compute fingerprint after frames are populated
+        report.fingerprint = compute_fingerprint(report)
+        now_iso = report.timestamp
+        report.first_seen = now_iso
+        report.last_seen = now_iso
 
         report = sanitize(report, config)
         json_str = serialize(report, config)
