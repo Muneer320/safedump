@@ -14,6 +14,7 @@ _frame_walker.py and _hook_manager.py respectively.
 
 from __future__ import annotations
 
+import contextlib
 import sys
 import threading
 import traceback
@@ -108,6 +109,10 @@ def crash_handler(
 
         if path is not None:
             print(f"Crash report saved: {path}", file=sys.stderr)
+            # Run on_crash hook if configured
+            with contextlib.suppress(Exception):
+                if config.on_crash is not None:
+                    config.on_crash(path)
         else:
             print("Safedump: could not write crash report", file=sys.stderr)
 
@@ -247,7 +252,11 @@ def capture_exception(
 
         report = sanitize(report, config)
         json_str = serialize(report, config)
-        return save(json_str, config, report)
+        path = save(json_str, config, report)
+        if path is not None and config.on_crash is not None:
+            with contextlib.suppress(Exception):
+                config.on_crash(path)
+        return path
     finally:
         config.privacy_tier = saved_tier
         config.output_dir = saved_dir

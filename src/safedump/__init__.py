@@ -79,6 +79,7 @@ def configure(
     enable_entropy_detection: bool = False,
     entropy_threshold: float = 4.5,
     compress: bool = False,
+    on_crash: Callable[[Path], Any] | None = None,
 ) -> None:
     """Configure Safedump globally. Call before :func:`install`.
 
@@ -97,6 +98,7 @@ def configure(
         enable_entropy_detection=enable_entropy_detection,
         entropy_threshold=entropy_threshold,
         compress=compress,
+        on_crash=on_crash,
     )
 
 
