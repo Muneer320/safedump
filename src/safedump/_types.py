@@ -19,6 +19,7 @@ from typing import Any, Callable, NamedTuple
 # ── Version ──────────────────────────────────────────────────────────
 
 __version__ = "1.0.0"
+CRASH_REPORT_SCHEMA_VERSION = 1
 
 # ── Configuration ────────────────────────────────────────────────────
 
@@ -228,15 +229,20 @@ class RedactionRecord:
 
 @dataclass
 class CrashReport:
-    """Complete crash report — the root object of the data model."""
+    """Complete crash report -- the root object of the data model."""
 
+    schema_version: int = CRASH_REPORT_SCHEMA_VERSION
     safedump_version: str = __version__
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     python_version: str = field(default_factory=lambda: sys.version)
     platform: str = field(default_factory=lambda: sys.platform)
+    fingerprint: str = ""
+    occurrence_count: int = 1
+    first_seen: str = ""
+    last_seen: str = ""
     exception: ExceptionSnapshot = field(default_factory=ExceptionSnapshot)
     frames: list[FrameSnapshot] = field(default_factory=list)
     environment: EnvironmentSnapshot = field(default_factory=EnvironmentSnapshot)
     threads: list[ThreadSnapshot] = field(default_factory=list)
     redactions: list[RedactionRecord] = field(default_factory=list)
-    metadata: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)

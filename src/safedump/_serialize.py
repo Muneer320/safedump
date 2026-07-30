@@ -187,7 +187,12 @@ def serialize(report: CrashReport, config: SafedumpConfig) -> str:
     """
     # Build the report payload
     payload: dict[str, Any] = {
+        "schema_version": report.schema_version,
         "safedump_version": report.safedump_version,
+        "fingerprint": report.fingerprint,
+        "occurrence_count": report.occurrence_count,
+        "first_seen": report.first_seen,
+        "last_seen": report.last_seen,
         "timestamp": report.timestamp,
         "python_version": report.python_version,
         "platform": report.platform,

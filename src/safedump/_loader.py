@@ -1,7 +1,8 @@
 """Crash report loading for Safedump.
 
-Parses JSON report files and discovers recent crashes.
-Runs in the cold path — can fail safely.
+Parses JSON report files, discovers recent crashes,
+and applies schema migrations for forward compatibility.
+Runs in the cold path -- can fail safely.
 """
 
 # SPDX-FileCopyrightText: 2026 Muneer Alam
@@ -13,22 +14,51 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+
+from safedump._types import CRASH_REPORT_SCHEMA_VERSION
+
+# ── Schema Migration Framework ─────────────────────────────────────
+
+MIGRATIONS: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = {}
+
+
+def _migrate_v0_to_v1(raw: dict[str, Any]) -> dict[str, Any]:
+    """Migrate schema v0 (no version field) to v1.
+
+    v0 was the initial format used by safedump 1.0.0 through 1.1.0.
+    v1 adds: schema_version, fingerprint, occurrence_count,
+    first_seen, last_seen, and changes metadata type to dict[str, Any].
+    """
+    raw.setdefault("schema_version", 1)
+    raw.setdefault("fingerprint", "")
+    raw.setdefault("occurrence_count", 1)
+    raw.setdefault("first_seen", raw.get("timestamp", ""))
+    raw.setdefault("last_seen", raw.get("timestamp", ""))
+    raw.setdefault("metadata", {})
+    # Ensure metadata values survive if any are non-string
+    metadata = raw.get("metadata", {})
+    if metadata is None:
+        raw["metadata"] = {}
+    return raw
+
+
+MIGRATIONS[0] = _migrate_v0_to_v1
 
 
 def load_report(path: str | Path) -> dict[str, Any]:
-    """Load a Safedump crash report from disk.
+    """Load a Safedump crash report from disk, applying migrations.
 
     Args:
         path: Path to a ``.safedump.json`` file.
 
     Returns:
-        Parsed report dict with all fields.
+        Parsed report dict with all fields migrated to the current
+        schema version.
 
     Raises:
         FileNotFoundError: If ``path`` does not exist.
-        ValueError: If the file is not valid Safedump JSON
-            (missing ``safedump_version`` field).
+        ValueError: If the file is not valid Safedump JSON.
     """
     filepath = Path(path).expanduser()
     if not filepath.exists():
@@ -39,6 +69,13 @@ def load_report(path: str | Path) -> dict[str, Any]:
 
     if "safedump_version" not in data:
         raise ValueError(f"Not a valid safedump report (missing safedump_version): {filepath}")
+
+    # Determine current schema version and apply migrations
+    version = data.get("schema_version", 0)
+    for v in range(version, CRASH_REPORT_SCHEMA_VERSION):
+        if v in MIGRATIONS:
+            data = MIGRATIONS[v](data)
+        data["schema_version"] = v + 1
 
     return data
 
