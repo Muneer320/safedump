@@ -35,6 +35,8 @@ def configure(
     max_depth: int = 5,
     redaction_rules: list[str | RedactionRule] | None = None,
     before_capture: Callable[[Any], Any | None] | None = None,
+    enable_entropy_detection: bool = False,
+    entropy_threshold: float = 4.5,
 ) -> None:
     """Configure Safedump globally.
 
@@ -55,8 +57,10 @@ def configure(
         max_collection_items: Maximum items from lists/dicts/sets.
         max_depth: Maximum depth for nested object traversal.
         redaction_rules: Additional redaction rules (strings or RedactionRule).
-        before_capture: Callback invoked before report generation. Receives
-            the CrashReport and returns a modified one, or None to skip.
+        before_capture: Callback invoked before report generation.
+        enable_entropy_detection: Enable Shannon entropy-based secret detection.
+        entropy_threshold: Entropy threshold (bits/char) above which values
+            are considered suspicious (default 4.5).
 
     Raises:
         ValueError: If preset is unknown or parameter validation fails.
@@ -93,6 +97,8 @@ def configure(
         max_depth=max_depth,
         redaction_rules=resolved_rules,
         before_capture=before_capture,
+        enable_entropy_detection=enable_entropy_detection,
+        entropy_threshold=entropy_threshold,
     )
     # Validation happens in SafedumpConfig.__post_init__
 

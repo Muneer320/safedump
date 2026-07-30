@@ -5,7 +5,7 @@
 
 """Tests for the Safedump sanitization module."""
 
-from safedump._sanitize import _detect_secret, sanitize
+from safedump._sanitize import _compute_shannon_entropy, _detect_secret, sanitize
 from safedump._types import (
     CrashReport,
     EnvironmentSnapshot,
@@ -58,6 +58,120 @@ class TestDetectSecret:
 
     def test_invalid_pattern_does_not_raise(self):
         assert _detect_secret("anything", [r"["]) is None
+
+
+class TestEntropyDetection:
+    """Shannon entropy secret detection tests."""
+
+    def test_low_entropy_string(self):
+        """Normal text should not trigger entropy detection."""
+        assert _compute_shannon_entropy("hello world this is normal text") <= 4.5
+
+    def test_high_entropy_string(self):
+        """Random-looking strings should trigger detection."""
+        entropy = _compute_shannon_entropy("aK9#mP2$xR7&vB4@nQ1!zW5*cE8")
+        assert entropy >= 4.5
+
+    def test_empty_string_entropy_zero(self):
+        assert _compute_shannon_entropy("") == 0.0
+
+    def test_single_char_entropy_zero(self):
+        assert _compute_shannon_entropy("aaaaaa") == 0.0
+
+    def test_entropy_skipped_when_disabled(self, tmp_path):
+        """When enable_entropy_detection is False, high-entropy values are preserved."""
+        config = SafedumpConfig(enable_entropy_detection=False, output_dir=tmp_path)
+        report = CrashReport()
+        report.frames.append(
+            FrameSnapshot(
+                index=0,
+                file="test.py",
+                line=1,
+                function="test",
+                lineno=1,
+                locals={
+                    "user_value": VariableSnapshot(
+                        name="user_value",
+                        type="str",
+                        value="aK9#mP2$xR7&vB4@nQ1!zW5*cE8test",
+                    ),
+                },
+            )
+        )
+        result = sanitize(report, config)
+        frame = result.frames[0]
+        assert frame.locals["user_value"].value != "[REDACTED]"
+
+    def test_entropy_triggers_when_enabled(self, tmp_path):
+        """When enabled, high-entropy values should be redacted."""
+        config = SafedumpConfig(enable_entropy_detection=True, output_dir=tmp_path)
+        report = CrashReport()
+        report.frames.append(
+            FrameSnapshot(
+                index=0,
+                file="test.py",
+                line=1,
+                function="test",
+                lineno=1,
+                locals={
+                    "random_token": VariableSnapshot(
+                        name="random_token",
+                        type="str",
+                        value="aK9#mP2$xR7&vB4@nQ1!zW5*cE8testvalue123456",
+                    ),
+                },
+            )
+        )
+        result = sanitize(report, config)
+        frame = result.frames[0]
+        assert frame.locals["random_token"].value == "[REDACTED]"
+
+    def test_entropy_skips_short_strings(self, tmp_path):
+        """Strings shorter than 16 chars should not trigger entropy detection."""
+        config = SafedumpConfig(enable_entropy_detection=True, output_dir=tmp_path)
+        report = CrashReport()
+        report.frames.append(
+            FrameSnapshot(
+                index=0,
+                file="test.py",
+                line=1,
+                function="test",
+                lineno=1,
+                locals={
+                    "short": VariableSnapshot(
+                        name="short",
+                        type="str",
+                        value="xyz123!",
+                    ),
+                },
+            )
+        )
+        result = sanitize(report, config)
+        frame = result.frames[0]
+        assert frame.locals["short"].value == "xyz123!"
+
+    def test_entropy_record_added(self, tmp_path):
+        """Entropy redactions should be recorded."""
+        config = SafedumpConfig(enable_entropy_detection=True, output_dir=tmp_path)
+        report = CrashReport()
+        report.frames.append(
+            FrameSnapshot(
+                index=0,
+                file="test.py",
+                line=1,
+                function="test",
+                lineno=1,
+                locals={
+                    "high_entropy": VariableSnapshot(
+                        name="high_entropy",
+                        type="str",
+                        value="aK9#mP2$xR7&vB4@nQ1!zW5*cE8testval123456",
+                    ),
+                },
+            )
+        )
+        result = sanitize(report, config)
+        assert any("entropy" in r.rule for r in result.redactions)
 
 
 class TestSanitize:

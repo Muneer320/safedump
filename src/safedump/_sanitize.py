@@ -10,6 +10,7 @@ Runs in the crash-time hot path — must never raise.
 
 from __future__ import annotations
 
+import math
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -26,7 +27,7 @@ def _detect_secret(value: str, patterns: list[str]) -> str | None:
     """Check a string value against regex secret patterns.
 
     Returns the matching pattern if found, ``None`` otherwise.
-    Never raises — invalid patterns are silently skipped.
+    Never raises -- invalid patterns are silently skipped.
     """
     for pattern in patterns:
         try:
@@ -35,6 +36,24 @@ def _detect_secret(value: str, patterns: list[str]) -> str | None:
         except re.error:
             continue
     return None
+
+
+def _compute_shannon_entropy(value: str) -> float:
+    """Compute Shannon entropy of a string.
+
+    High-entropy strings (API keys, tokens) have even distribution
+    across many characters. Low-entropy strings have uneven distribution.
+
+    Returns bits per character (0.0 to ~8.0 for text).
+    """
+    if not value:
+        return 0.0
+    length = len(value)
+    freq: dict[str, int] = {}
+    for char in value:
+        freq[char] = freq.get(char, 0) + 1
+    entropy = -sum((count / length) * math.log2(count / length) for count in freq.values())
+    return round(entropy, 2)
 
 
 def _is_string(value: Any) -> bool:
@@ -161,6 +180,23 @@ def _sanitize_variable(
                     "secret_pattern",
                 )
             )
+            return
+
+        # Entropy-based detection (opt-in)
+        if (
+            config.enable_entropy_detection
+            and len(raw_value) >= 16
+            and _compute_shannon_entropy(raw_value) > config.entropy_threshold
+        ):
+            var.value = _redact_value(raw_value)
+            redactions.append(
+                _make_record(
+                    path,
+                    f"high entropy: {_compute_shannon_entropy(raw_value)}",
+                    "entropy_detection",
+                )
+            )
+            return
 
 
 def _apply_redaction(

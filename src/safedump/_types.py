@@ -53,6 +53,8 @@ class SafedumpConfig:
     generation_timeout_seconds: int = 30
     redaction_rules: list[RedactionRule] = field(default_factory=list)
     before_capture: Callable[[Any], Any | None] | None = None
+    enable_entropy_detection: bool = False
+    entropy_threshold: float = 4.5
 
     def __post_init__(self) -> None:
         self._validate()

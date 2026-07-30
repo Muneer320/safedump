@@ -76,6 +76,8 @@ def configure(
     max_depth: int = 5,
     redaction_rules: list[str | RedactionRule] | None = None,
     before_capture: Callable[[Any], Any | None] | None = None,
+    enable_entropy_detection: bool = False,
+    entropy_threshold: float = 4.5,
 ) -> None:
     """Configure Safedump globally. Call before :func:`install`.
 
@@ -91,6 +93,8 @@ def configure(
         max_depth=max_depth,
         redaction_rules=redaction_rules,
         before_capture=before_capture,
+        enable_entropy_detection=enable_entropy_detection,
+        entropy_threshold=entropy_threshold,
     )
 
 
