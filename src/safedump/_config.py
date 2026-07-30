@@ -37,6 +37,7 @@ def configure(
     before_capture: Callable[[Any], Any | None] | None = None,
     enable_entropy_detection: bool = False,
     entropy_threshold: float = 4.5,
+    compress: bool = False,
 ) -> None:
     """Configure Safedump globally.
 
@@ -47,20 +48,19 @@ def configure(
     Call before install().
 
     Args:
-        preset: Configuration preset. One of "production", "development",
-            "debug", or "minimal". Overrides individual parameters.
+        preset: Configuration preset.
         output_dir: Directory for crash report files.
-        privacy_tier: Capture detail level (0-4). Higher values capture more.
-        include_env_names: Include environment variable names in reports.
-        include_argv: Include command-line arguments in reports.
+        privacy_tier: Capture detail level (0-4).
+        include_env_names: Include environment variable names.
+        include_argv: Include command-line arguments.
         max_string_length: Maximum length for captured string values.
         max_collection_items: Maximum items from lists/dicts/sets.
         max_depth: Maximum depth for nested object traversal.
-        redaction_rules: Additional redaction rules (strings or RedactionRule).
+        redaction_rules: Additional redaction rules.
         before_capture: Callback invoked before report generation.
-        enable_entropy_detection: Enable Shannon entropy-based secret detection.
-        entropy_threshold: Entropy threshold (bits/char) above which values
-            are considered suspicious (default 4.5).
+        enable_entropy_detection: Enable Shannon entropy-based detection.
+        entropy_threshold: Entropy threshold (bits/char, default 4.5).
+        compress: Write crash reports as gzip-compressed JSON files.
 
     Raises:
         ValueError: If preset is unknown or parameter validation fails.
@@ -99,6 +99,7 @@ def configure(
         before_capture=before_capture,
         enable_entropy_detection=enable_entropy_detection,
         entropy_threshold=entropy_threshold,
+        compress=compress,
     )
     # Validation happens in SafedumpConfig.__post_init__
 

@@ -69,7 +69,7 @@ def _ensure_output_dir(output_dir: Path) -> Path | None:
         return None
 
 
-def _write_atomic(output_dir: Path, filename: str, content: str) -> Path | None:
+def _write_atomic(output_dir: Path, filename: str, content: str | bytes) -> Path | None:
     """Write content to a file atomically.
 
     Uses tempfile + os.replace() for atomicity on POSIX.
@@ -79,7 +79,10 @@ def _write_atomic(output_dir: Path, filename: str, content: str) -> Path | None:
         # Write to temp file in the same directory
         fd, tmp_path = tempfile.mkstemp(suffix=".tmp", prefix=".", dir=str(output_dir))
         try:
-            os.write(fd, content.encode("utf-8"))
+            if isinstance(content, bytes):
+                os.write(fd, content)
+            else:
+                os.write(fd, content.encode("utf-8"))
         finally:
             os.close(fd)
 
@@ -118,9 +121,20 @@ def save(json_str: str, config: SafedumpConfig, report: CrashReport) -> Path | N
     Returns:
         Path to the written file, or None if all write attempts failed.
     """
+    import gzip
     import json as _json
 
     filename = generate_filename(report)
+
+    # Determine content and filename based on compression setting
+    if config.compress:
+        json_bytes = json_str.encode("utf-8")
+        content_to_write = gzip.compress(json_bytes)
+        # Use .safedump.json.gz extension for compressed files
+        if not filename.endswith(".gz"):
+            filename += ".gz"
+    else:
+        content_to_write = json_str
 
     # Check for existing report with same fingerprint (dedup)
     if report.fingerprint:
@@ -144,7 +158,7 @@ def save(json_str: str, config: SafedumpConfig, report: CrashReport) -> Path | N
     # Primary path
     primary_dir = _ensure_output_dir(config.output_dir)
     if primary_dir is not None:
-        result = _write_atomic(primary_dir, filename, json_str)
+        result = _write_atomic(primary_dir, filename, content_to_write)
         if result is not None:
             return result
 
@@ -152,7 +166,7 @@ def save(json_str: str, config: SafedumpConfig, report: CrashReport) -> Path | N
     fallback_dir = Path(tempfile.gettempdir()) / f"safedump-fallback-{os.getpid()}"
     fb_dir = _ensure_output_dir(fallback_dir)
     if fb_dir is not None:
-        result = _write_atomic(fb_dir, filename, json_str)
+        result = _write_atomic(fb_dir, filename, content_to_write)
         if result is not None:
             return result
 
@@ -171,9 +185,14 @@ def _find_existing_by_fingerprint(output_dir: Path, fingerprint: str) -> Path | 
         return None
 
     candidates = []
-    for p in output_dir.glob("*.safedump.json"):
+    for p in output_dir.glob("*.safedump.json*"):
         try:
-            data = _json.loads(p.read_text(encoding="utf-8"))
+            import gzip
+
+            raw = p.read_bytes()
+            if raw[:2] == b"\x1f\x8b":
+                raw = gzip.decompress(raw)
+            data = _json.loads(raw)
             if data.get("fingerprint") == fingerprint:
                 candidates.append(p)
         except (OSError, _json.JSONDecodeError):

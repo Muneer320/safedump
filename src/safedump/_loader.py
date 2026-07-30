@@ -49,6 +49,9 @@ MIGRATIONS[0] = _migrate_v0_to_v1
 def load_report(path: str | Path) -> dict[str, Any]:
     """Load a Safedump crash report from disk, applying migrations.
 
+    Supports both ``.safedump.json`` and ``.safedump.json.gz`` files.
+    Gzip files are transparently decompressed on read.
+
     Args:
         path: Path to a ``.safedump.json`` file.
 
@@ -60,12 +63,20 @@ def load_report(path: str | Path) -> dict[str, Any]:
         FileNotFoundError: If ``path`` does not exist.
         ValueError: If the file is not valid Safedump JSON.
     """
+    import gzip
+
     filepath = Path(path).expanduser()
     if not filepath.exists():
         raise FileNotFoundError(f"Crash report not found: {filepath}")
 
-    with open(filepath, encoding="utf-8") as f:
-        data: dict[str, Any] = json.load(f)
+    try:
+        raw = filepath.read_bytes()
+        # Detect gzip via magic bytes
+        if raw[:2] == b"\x1f\x8b":
+            raw = gzip.decompress(raw)
+        data = json.loads(raw)
+    except (json.JSONDecodeError, OSError, gzip.BadGzipFile) as e:
+        raise ValueError(f"Could not load crash report: {e}") from None
 
     if "safedump_version" not in data:
         raise ValueError(f"Not a valid safedump report (missing safedump_version): {filepath}")
@@ -94,7 +105,7 @@ def find_latest(output_dir: str | Path) -> Path | None:
         return None
 
     reports = sorted(
-        directory.glob("*.safedump.json"),
+        directory.glob("*.safedump.json*"),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
@@ -128,7 +139,7 @@ def list_reports(
         return []
 
     reports = sorted(
-        directory.glob("*.safedump.json"),
+        directory.glob("*.safedump.json*"),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
@@ -242,7 +253,7 @@ def clean_older_than(output_dir: str | Path, days: int) -> int:
 
     cutoff = time.time() - (days * 86400)
     deleted = 0
-    for report in directory.glob("*.safedump.json"):
+    for report in directory.glob("*.safedump.json*"):
         try:
             if report.stat().st_mtime < cutoff:
                 report.unlink()

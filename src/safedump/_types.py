@@ -55,6 +55,7 @@ class SafedumpConfig:
     before_capture: Callable[[Any], Any | None] | None = None
     enable_entropy_detection: bool = False
     entropy_threshold: float = 4.5
+    compress: bool = False
 
     def __post_init__(self) -> None:
         self._validate()

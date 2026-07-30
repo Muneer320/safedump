@@ -205,3 +205,65 @@ class TestDeduplication:
         # Should fall back to /tmp or return None
         if path is not None:
             assert path.exists()
+
+
+class TestCompression:
+    """Report compression tests."""
+
+    def test_compress_writes_gz_file(self, tmp_path):
+        """When compress=True, files should be .json.gz."""
+        from safedump._serialize import serialize
+        from safedump._storage import save
+
+        config = SafedumpConfig(output_dir=tmp_path, compress=True)
+        report = CrashReport(
+            exception=ExceptionSnapshot(type="ValueError", message="compressed"),
+            frames=[FrameSnapshot(index=0, file="test.py", line=1, function="test", lineno=1)],
+        )
+        path = save(serialize(report, config), config, report)
+        assert path is not None
+        assert path.name.endswith(".gz"), f"Expected .gz file, got {path.name}"
+
+    def test_compress_actual_gzip_bytes(self, tmp_path):
+        """File content should be actual gzip data."""
+        from safedump._serialize import serialize
+        from safedump._storage import save
+
+        config = SafedumpConfig(output_dir=tmp_path, compress=True)
+        report = CrashReport(
+            exception=ExceptionSnapshot(type="ValueError", message="gzip_test"),
+            frames=[FrameSnapshot(index=0, file="test.py", line=1, function="test", lineno=1)],
+        )
+        path = save(serialize(report, config), config, report)
+        raw = path.read_bytes()
+        assert raw[:2] == b"\x1f\x8b", "File should be gzip-compressed"
+
+    def test_uncompressed_plain_json(self, tmp_path):
+        """When compress=False, files should be plain JSON."""
+        from safedump._serialize import serialize
+        from safedump._storage import save
+
+        config = SafedumpConfig(output_dir=tmp_path, compress=False)
+        report = CrashReport(
+            exception=ExceptionSnapshot(type="KeyError", message="plain"),
+            frames=[FrameSnapshot(index=0, file="test.py", line=1, function="test", lineno=1)],
+        )
+        path = save(serialize(report, config), config, report)
+        raw = path.read_bytes()
+        assert raw[:2] != b"\x1f\x8b", "Uncompressed file should not have gzip magic bytes"
+
+    def test_load_report_reads_compressed(self, tmp_path):
+        """load_report should decompress .json.gz files transparently."""
+        from safedump._loader import load_report
+        from safedump._serialize import serialize
+        from safedump._storage import save
+
+        config = SafedumpConfig(output_dir=tmp_path, compress=True)
+        report = CrashReport(
+            exception=ExceptionSnapshot(type="ValueError", message="roundtrip"),
+            frames=[FrameSnapshot(index=0, file="test.py", line=1, function="test", lineno=1)],
+        )
+        path = save(serialize(report, config), config, report)
+        data = load_report(path)
+        assert data["exception"]["type"] == "ValueError"
+        assert data["exception"]["message"] == "roundtrip"

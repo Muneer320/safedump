@@ -78,6 +78,7 @@ def configure(
     before_capture: Callable[[Any], Any | None] | None = None,
     enable_entropy_detection: bool = False,
     entropy_threshold: float = 4.5,
+    compress: bool = False,
 ) -> None:
     """Configure Safedump globally. Call before :func:`install`.
 
@@ -95,6 +96,7 @@ def configure(
         before_capture=before_capture,
         enable_entropy_detection=enable_entropy_detection,
         entropy_threshold=entropy_threshold,
+        compress=compress,
     )
 
 
