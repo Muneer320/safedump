@@ -10,6 +10,8 @@ import html
 import json
 from typing import Any
 
+from safedump._loader import format_value
+
 
 def render_html(report: dict[str, Any]) -> str:
     """Render a crash report as a self-contained HTML page.
@@ -183,7 +185,7 @@ def _render_frames(frames: list[dict[str, Any]]) -> list[str]:
             rows = []
             for name, var in sorted(locals_dict.items()):
                 var_type = html.escape(var.get("type", "?"))
-                var_value = html.escape(var.get("value", ""))
+                var_value = html.escape(format_value(var.get("value", "")))
                 truncated = var.get("is_truncated", False)
                 trunc_marker = (
                     ' <span class="badge badge-warn">truncated</span>' if truncated else ""

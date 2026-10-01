@@ -88,13 +88,13 @@ except Exception:
 ### 🔒 Privacy First
 - **Zero cloud** — no network calls, no telemetry, no accounts
 - **Secret redaction** — denylist (variable names) + regex (credentials) + entropy-based detection
-- **Privacy tiers** — configure exactly what gets captured (levels 0-4)
+- **Privacy tiers** — from tier 0 (stack trace only, safe to share) to tier 4 (adds env var values); see [Privacy Tiers](https://muneer320.github.io/safedump/privacy/)
 - **File permissions** — reports saved with `0600` (owner-only)
 
 ### 📋 Rich Debugging Context
-- **Local variables** — values and types at every stack frame
+- **Local variables** — structured values (nested lists and dicts) and types at every stack frame
 - **Exception chains** — full `__cause__` + `ExceptionGroup` support
-- **Thread state** — all threads captured, crashing thread highlighted
+- **Thread state** — all threads captured, crashing thread highlighted; crashes in worker threads and in `__del__` are captured too
 - **Environment** — OS, Python version, CWD, env var names
 
 ### 🎨 Developer Experience
@@ -112,7 +112,7 @@ except Exception:
 - **Custom redaction** — `RedactionRule` for domain-specific scrubbing
 - **`before_capture` hook** — pre-processing before report generation
 - **`on_crash` hook** — callback invoked after each capture (file notification, etc.)
-- **pytest integration** — auto-capture on test failures
+- **pytest integration** — a report for every failing test (opt-in plugin)
 - **Click/Typer integration** — `@wrap_click()` decorator
 
 ## CLI Reference
@@ -124,9 +124,10 @@ safedump view --html [output]      # Export as self-contained HTML
 safedump list [--count] [--type] [--since] [--search]
 safedump stats                     # Aggregate crash statistics
 safedump doctor [--verbose]        # Diagnose common issues
-safedump serve [--port] [--host]   # Start local web server
+safedump serve [--port] [--host]   # Start local web server (localhost only, no CORS)
 safedump clean --older-than DAYS   # Delete old reports
-safedump test                      # Verify installation
+safedump test                      # Write a test report (no install() needed)
+safedump --dir ./crashes list      # Any command, another report directory ($SAFEDUMP_DIR also works)
 ```
 
 ## Configuration
@@ -144,7 +145,7 @@ safedump.configure(
 
 ## Documentation
 
-Full documentation at **[safedump.dev](https://Muneer320.github.io/safedump)** (coming with v2.0).
+Full documentation: **[muneer320.github.io/safedump](https://muneer320.github.io/safedump/)**.
 
 ## Supported Platforms
 

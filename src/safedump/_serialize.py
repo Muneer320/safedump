@@ -33,6 +33,9 @@ _serializer_registry: dict[type, Any] = {}
 def register_serializer(type_: type, handler: Any) -> None:
     """Register a custom serializer for a type.
 
+    The handler is applied when a crash is captured, to local variables (and
+    to anything nested inside them) of exactly this type.
+
     Args:
         type_: The Python type to handle.
         handler: A callable that takes an instance of ``type_``
@@ -197,7 +200,7 @@ def serialize(report: CrashReport, config: SafedumpConfig) -> str:
         "python_version": report.python_version,
         "platform": report.platform,
         "exception": _serialize_exception(report.exception),
-        "frames": [_serialize_frame(f) for f in report.frames],
+        "frames": [_serialize_frame(f, config.max_string_length) for f in report.frames],
         "environment": _serialize_environment(report.environment),
         "threads": [_serialize_thread(t) for t in report.threads],
         "redactions": [
@@ -234,25 +237,61 @@ def _serialize_exception(exc: Any) -> dict[str, Any]:
     }
 
 
-def _serialize_frame(frame: Any) -> dict[str, Any]:
-    """Serialize a FrameSnapshot to a dict."""
-    locals_dict: dict[str, Any] = {}
-    for name, var in getattr(frame, "locals", {}).items():
-        locals_dict[name] = {
-            "type": getattr(var, "type", "unknown"),
-            "value": getattr(var, "value", None),
-            "is_truncated": getattr(var, "is_truncated", False),
-        }
+def _truncate(value: Any, limit: int) -> tuple[Any, bool]:
+    """Cut strings inside a JSON-like value to ``limit`` characters.
 
-    return {
+    Runs after redaction, so a secret is never half-kept by the cut-off.
+    Returns the new value and whether anything was truncated.
+    """
+    if isinstance(value, str):
+        if len(value) > limit:
+            return value[:limit] + "...", True
+        return value, False
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        truncated = False
+        for key, item in value.items():
+            out[key], cut = _truncate(item, limit)
+            truncated = truncated or cut
+        return out, truncated
+    if isinstance(value, list):
+        items = []
+        truncated = False
+        for item in value:
+            new_item, cut = _truncate(item, limit)
+            items.append(new_item)
+            truncated = truncated or cut
+        return items, truncated
+    return value, False
+
+
+def _serialize_variables(variables: dict[str, Any], limit: int) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for name, var in variables.items():
+        value, truncated = _truncate(getattr(var, "value", None), limit)
+        result[name] = {
+            "type": getattr(var, "type", "unknown"),
+            "value": value,
+            "is_truncated": truncated or getattr(var, "is_truncated", False),
+        }
+    return result
+
+
+def _serialize_frame(frame: Any, limit: int = 10000) -> dict[str, Any]:
+    """Serialize a FrameSnapshot to a dict."""
+    data = {
         "index": getattr(frame, "index", -1),
         "file": getattr(frame, "file", ""),
         "line": getattr(frame, "line", 0),
         "function": getattr(frame, "function", ""),
         "code_context": getattr(frame, "code_context", []),
-        "locals": locals_dict,
+        "locals": _serialize_variables(getattr(frame, "locals", {}), limit),
         "is_crash_site": getattr(frame, "is_crash_site", False),
     }
+    frame_globals = getattr(frame, "globals", None)
+    if frame_globals:
+        data["globals"] = _serialize_variables(frame_globals, limit)
+    return data
 
 
 def _serialize_environment(env: Any) -> dict[str, Any]:
@@ -264,6 +303,7 @@ def _serialize_environment(env: Any) -> dict[str, Any]:
         "python_path": getattr(env, "python_path", []),
         "cwd": getattr(env, "cwd", ""),
         "env_var_names": getattr(env, "env_var_names", []),
+        "env_var_values": getattr(env, "env_var_values", {}) or {},
         "argv": getattr(env, "argv", None),
     }
 

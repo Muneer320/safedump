@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from safedump._serialize import serialize
-from safedump._types import CrashReport, SafedumpConfig
+from safedump._types import CRASH_REPORT_SCHEMA_VERSION, CrashReport, SafedumpConfig, __version__
 
 
 class TestSerialize:
@@ -15,7 +15,7 @@ class TestSerialize:
         result = serialize(report, config)
         assert isinstance(result, str)
         parsed = json.loads(result)
-        assert parsed["safedump_version"] == "2.0.0"
+        assert parsed["safedump_version"] == __version__
         assert "frames" in parsed
         assert "exception" in parsed
 
@@ -23,7 +23,7 @@ class TestSerialize:
         report = CrashReport()
         config = SafedumpConfig()
         result = json.loads(serialize(report, config))
-        assert result["schema_version"] == 1
+        assert result["schema_version"] == CRASH_REPORT_SCHEMA_VERSION
 
     def test_serializes_fingerprint(self):
         report = CrashReport()

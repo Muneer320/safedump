@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from safedump._loader import format_value
+
 
 def _get_rich() -> Any:
     """Lazy-import Rich. Returns None if not installed."""
@@ -113,7 +115,7 @@ def _render_frame(console: Any, frame: dict[str, Any], rich: Any) -> None:
         table.add_column("Type", style="dim")
         table.add_column("Value")
         for name, var in locals_dict.items():
-            table.add_row(name, var.get("type", "?"), str(var.get("value", "")))
+            table.add_row(name, var.get("type", "?"), format_value(var.get("value", "")))
         console.print(table)
 
 
@@ -126,7 +128,7 @@ def _render_plain(report: dict[str, Any]) -> None:
     for frame in frames:
         print(f"  {frame.get('file', '?')}:{frame.get('line', 0)} in {frame.get('function', '?')}")
         for name, var in frame.get("locals", {}).items():
-            print(f"    {name} = {var.get('value', '')}")
+            print(f"    {name} = {format_value(var.get('value', ''))}")
 
     env = report.get("environment", {})
     if env:

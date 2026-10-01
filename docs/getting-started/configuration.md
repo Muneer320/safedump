@@ -19,13 +19,13 @@ safedump.install()
 | Parameter | Default | Description |
 |---|---|---|
 | `preset` | `None` | Quick configuration preset |
-| `output_dir` | `~/.safedump` | Directory for crash reports |
-| `privacy_tier` | `1` | Capture detail level (0-4) |
+| `output_dir` | `$SAFEDUMP_DIR` or `~/.safedump` | Directory for crash reports |
+| `privacy_tier` | `1` | Capture detail level (0-4), see [Privacy](../privacy.md) |
 | `include_env_names` | `True` | Include env var names |
 | `include_argv` | `False` | Include command-line args |
 | `max_string_length` | `10000` | Max chars per captured string |
 | `max_collection_items` | `100` | Max items from collections |
-| `max_depth` | `5` | Max depth for serialization |
+| `max_depth` | `5` | How many levels of nested values are expanded |
 | `redaction_rules` | `[]` | Custom redaction patterns |
 | `before_capture` | `None` | Pre-processing callback |
 | `enable_entropy_detection` | `False` | Entropy-based secret detection |
@@ -35,12 +35,26 @@ safedump.install()
 
 ## Presets
 
-| Preset | Tier | Env Vars | Argv | Depth |
+A preset sets `privacy_tier`, `include_env_names`, `include_argv` and `max_depth`, overriding those arguments if you pass them too.
+
+| Preset | Tier | Env var names | Argv | Depth |
 |---|---|---|---|---|
-| `production` | 1 | Yes | No | 5 |
-| `development` | 2 | Yes | Yes | 10 |
-| `debug` | 4 | Yes | Yes | 20 |
+| `production` | 1 | No | No | 5 |
+| `development` | 2 | Yes | No | 10 |
+| `debug` | 4 | Yes | Yes | 50 |
 | `minimal` | 0 | No | No | 3 |
+
+## Report directory
+
+Reports go to `output_dir`. If you don't set it, Safedump uses the `SAFEDUMP_DIR`
+environment variable, then `~/.safedump`. The CLI follows the same rule, and
+also accepts `--dir`:
+
+```bash
+export SAFEDUMP_DIR=./crashes
+safedump list            # reads ./crashes
+safedump --dir ./other list
+```
 
 ## Examples
 

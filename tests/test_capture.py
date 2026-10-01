@@ -14,6 +14,7 @@ import pytest
 
 from safedump import _capture
 from safedump._config import configure
+from safedump._types import CRASH_REPORT_SCHEMA_VERSION
 
 
 class TestInstallUninstallLifecycle:
@@ -51,13 +52,6 @@ class TestInstallUninstallLifecycle:
         assert sys.excepthook is _capture.crash_handler
         _capture.uninstall()
         assert sys.excepthook is original
-
-    def test_install_preallocates_fallback_buffer(self):
-        _capture._fallback_buffer = None
-        _capture.install()
-        assert _capture._fallback_buffer is not None
-        assert len(_capture._fallback_buffer) == 1_048_576
-        _capture.uninstall()
 
 
 class TestCaptureException:
@@ -115,7 +109,7 @@ class TestCaptureException:
         assert path is not None
         with open(path) as f:
             data = json.load(f)
-        assert data.get("schema_version") == 1
+        assert data.get("schema_version") == CRASH_REPORT_SCHEMA_VERSION
 
 
 class TestCrashHandler:
@@ -170,10 +164,11 @@ class TestCrashHandler:
 class TestSelfTest:
     """safedump.test() function tests."""
 
-    def test_test_raises_when_not_installed(self):
+    def test_test_works_without_install(self, tmp_path):
         _capture.uninstall()
-        with pytest.raises(RuntimeError, match="not installed"):
-            _capture.test()
+        configure(output_dir=tmp_path)
+        path = _capture.test()
+        assert path is not None and path.parent == tmp_path
 
     def test_test_creates_report(self, tmp_path):
         configure(output_dir=tmp_path)

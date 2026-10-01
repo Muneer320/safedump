@@ -4,6 +4,17 @@ This page lists notable changes to Safedump.
 
 For the full changelog, see [CHANGELOG.md](https://github.com/Muneer320/safedump/blob/main/CHANGELOG.md) on GitHub.
 
+## v2.1.0 — Correctness & Hardening (2026-10-01)
+
+- Privacy tiers, presets, thread/unraisable capture and `register_serializer()` work as documented
+- Secrets are redacted before values are truncated (no partial leaks)
+- Crash site and fingerprint use the frame that raised
+- Compression works with deduplication, filters and stats
+- `SAFEDUMP_DIR` environment variable and `safedump --dir`
+- `safedump test` works without `install()`
+- `safedump serve`: no CORS, Host header check, token for deletes
+- Report schema v2 (older reports migrate automatically)
+
 ## v1.3.0 — Smart Detection (2026-07-30)
 
 - Entropy-based secret detection (opt-in)

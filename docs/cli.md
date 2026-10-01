@@ -1,5 +1,12 @@
 # CLI Reference
 
+All commands read reports from `--dir DIR` if given, otherwise from
+`$SAFEDUMP_DIR`, otherwise from `~/.safedump`:
+
+```bash
+safedump --dir ./crashes list
+```
+
 ## safedump view
 
 View a crash report in the terminal or export as HTML.
@@ -66,7 +73,7 @@ safedump serve --port 8080            # Custom port
 safedump serve --host 0.0.0.0         # Network accessible
 ```
 
-The server is intentionally minimal (stdlib `http.server`).
+The server is intentionally minimal (stdlib `http.server`). See [Local Web Server](web-server.md) for its security model.
 No authentication, no sessions, no JavaScript framework.
 
 ## safedump clean
@@ -85,7 +92,7 @@ Verify Safedump is working.
 safedump test
 ```
 
-Deliberately captures a test exception and writes a report.
+Deliberately captures a test exception and writes a report to the report directory, then reads it back. It does not need `safedump.install()`. Use it to check that reports can be written.
 
 ## safedump --version
 

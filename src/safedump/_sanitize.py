@@ -1,7 +1,10 @@
 """Secret detection and data sanitization for Safedump.
 
-Applies redaction rules to crash reports before serialization.
-Runs in the crash-time hot path — must never raise.
+Applies redaction rules to crash reports before serialization. Captured values
+are structured (dicts, lists, strings), so redaction walks them recursively,
+and every redaction is written back before it is recorded in the audit trail.
+
+Runs in the crash-time hot path: must never raise.
 """
 
 # SPDX-FileCopyrightText: 2026 Muneer Alam
@@ -19,16 +22,19 @@ from safedump._types import (
     CrashReport,
     RedactionRecord,
     SafedumpConfig,
+    VariableSnapshot,
     is_denylisted,
 )
 
+REDACTED = "[REDACTED]"
+
+# Env var names that look sensitive to the denylist (they contain "pwd") but
+# only hold the working directory, which the report records anyway.
+_SAFE_ENV_NAMES = {"PWD", "OLDPWD"}
+
 
 def _detect_secret(value: str, patterns: list[str]) -> str | None:
-    """Check a string value against regex secret patterns.
-
-    Returns the matching pattern if found, ``None`` otherwise.
-    Never raises -- invalid patterns are silently skipped.
-    """
+    """Return the first secret pattern that matches ``value``, or ``None``."""
     for pattern in patterns:
         try:
             if re.search(pattern, value):
@@ -39,13 +45,7 @@ def _detect_secret(value: str, patterns: list[str]) -> str | None:
 
 
 def _compute_shannon_entropy(value: str) -> float:
-    """Compute Shannon entropy of a string.
-
-    High-entropy strings (API keys, tokens) have even distribution
-    across many characters. Low-entropy strings have uneven distribution.
-
-    Returns bits per character (0.0 to ~8.0 for text).
-    """
+    """Shannon entropy of a string in bits per character (0.0 to ~8.0 for text)."""
     if not value:
         return 0.0
     length = len(value)
@@ -56,22 +56,7 @@ def _compute_shannon_entropy(value: str) -> float:
     return round(entropy, 2)
 
 
-def _is_string(value: Any) -> bool:
-    """Check if value is a string (str only, not bytes)."""
-    return isinstance(value, str)
-
-
-def _redact_value(original: Any) -> str:
-    """Replace a redacted value with a safe marker."""
-    return "[REDACTED]"
-
-
-def _make_record(
-    location: str,
-    reason: str,
-    rule: str,
-) -> RedactionRecord:
-    """Create a redaction audit record."""
+def _make_record(location: str, reason: str, rule: str) -> RedactionRecord:
     return RedactionRecord(
         location=location,
         reason=reason,
@@ -80,290 +65,167 @@ def _make_record(
     )
 
 
-def _sanitize_dict(
-    d: dict[str, Any],
-    path_prefix: str,
-    config: SafedumpConfig,
-    redactions: list[RedactionRecord],
-) -> None:
-    """Recursively sanitize a dictionary in-place.
+class _Sanitizer:
+    def __init__(self, config: SafedumpConfig, redactions: list[RedactionRecord]):
+        self.config = config
+        self.redactions = redactions
+        self.patterns = config.secret_patterns
+        self.value_rules = [r for r in config.redaction_rules if r.apply_to in ("values", "both")]
+        self.name_rules = [r for r in config.redaction_rules if r.apply_to in ("names", "both")]
 
-    Handles both plain values and VariableSnapshot objects
-    (which have a ``.value`` attribute).
-    """
-    for key in list(d.keys()):
-        current_path = f"{path_prefix}.{key}"
-        entry = d[key]
+    def record(self, location: str, reason: str, rule: str) -> None:
+        self.redactions.append(_make_record(location, reason, rule))
 
-        # Check variable name against denylist
-        if is_denylisted(key):
-            _apply_redaction(
-                entry,
-                current_path,
-                "matched denylist: '{key}'",
-                "variable_name_denylist",
-                redactions,
-            )
-            continue
+    # -- names -----------------------------------------------------------
+    def name_is_sensitive(self, name: str, path: str) -> bool:
+        if is_denylisted(name):
+            self.record(path, f"matched denylist: '{name}'", "variable_name_denylist")
+            return True
+        for rule in self.name_rules:
+            try:
+                if re.search(rule.pattern, name):
+                    self.record(path, f"name matched custom rule: {rule.pattern}", "custom_rule")
+                    return True
+            except re.error:
+                continue
+        return False
 
-        # Check string values against regex patterns
-        if _is_string(entry):
-            matched = _detect_secret(entry, config.secret_patterns)
-            if matched:
-                d[key] = _redact_value(entry)
-                redactions.append(
-                    _make_record(
-                        current_path,
-                        f"matched pattern: {matched}",
-                        "secret_pattern",
-                    )
-                )
+    # -- values ----------------------------------------------------------
+    def scrub_string(self, value: str, path: str) -> str:
+        for pattern in self.patterns:
+            try:
+                new_value, count = re.subn(pattern, REDACTED, value)
+            except re.error:
+                continue
+            if count:
+                value = new_value
+                self.record(path, f"matched pattern: {pattern}", "secret_pattern")
 
-        # Handle VariableSnapshot objects
-        elif hasattr(entry, "value") and hasattr(entry, "name"):
-            _sanitize_variable(entry, current_path, config, redactions)
-
-        # Recurse into nested dicts
-        elif isinstance(entry, dict):
-            _sanitize_dict(entry, current_path, config, redactions)
-
-        # Recurse into lists
-        elif isinstance(entry, list):
-            for i, item in enumerate(entry):
-                if _is_string(item):
-                    matched = _detect_secret(item, config.secret_patterns)
-                    if matched:
-                        entry[i] = _redact_value(item)
-                        redactions.append(
-                            _make_record(
-                                f"{current_path}[{i}]",
-                                f"matched pattern: {matched}",
-                                "secret_pattern",
-                            )
-                        )
-                elif isinstance(item, dict):
-                    _sanitize_dict(item, f"{current_path}[{i}]", config, redactions)
-
-        # Apply custom user rules to string values
-        _apply_custom_rules(entry, key, current_path, config, redactions)
-
-
-def _sanitize_variable(
-    var: Any,
-    path: str,
-    config: SafedumpConfig,
-    redactions: list[RedactionRecord],
-) -> None:
-    """Sanitize a single variable (name + value pair)."""
-    # Check name
-    if is_denylisted(var.name):
-        var.value = _redact_value(var.value)
-        redactions.append(
-            _make_record(
-                path,
-                f"matched denylist: '{var.name}'",
-                "variable_name_denylist",
-            )
-        )
-        return
-
-    # Check value if it's a string
-    raw_value = var.value
-    if _is_string(raw_value):
-        matched = _detect_secret(raw_value, config.secret_patterns)
-        if matched:
-            var.value = _redact_value(raw_value)
-            redactions.append(
-                _make_record(
-                    path,
-                    f"matched pattern: {matched}",
-                    "secret_pattern",
-                )
-            )
-            return
-
-        # Entropy-based detection (opt-in)
         if (
-            config.enable_entropy_detection
-            and len(raw_value) >= 16
-            and _compute_shannon_entropy(raw_value) > config.entropy_threshold
+            self.config.enable_entropy_detection
+            and value != REDACTED
+            and len(value) >= 16
+            and not any(ch.isspace() for ch in value)
         ):
-            var.value = _redact_value(raw_value)
-            redactions.append(
-                _make_record(
-                    path,
-                    f"high entropy: {_compute_shannon_entropy(raw_value)}",
-                    "entropy_detection",
-                )
-            )
+            entropy = _compute_shannon_entropy(value)
+            if entropy > self.config.entropy_threshold:
+                self.record(path, f"high entropy: {entropy}", "entropy_detection")
+                return REDACTED
+
+        for rule in self.value_rules:
+            try:
+                new_value, count = re.subn(rule.pattern, rule.replacement, value)
+            except re.error:
+                continue
+            if count:
+                value = new_value
+                self.record(path, f"matched custom rule: {rule.pattern}", "custom_rule")
+        return value
+
+    def scrub(self, value: Any, path: str) -> Any:
+        """Return a scrubbed copy of a JSON-like value."""
+        if isinstance(value, str):
+            return self.scrub_string(value, path)
+        if isinstance(value, dict):
+            result = {}
+            for key, item in value.items():
+                key_path = f"{path}.{key}"
+                if (
+                    isinstance(key, str)
+                    and not key.startswith("__")
+                    and self.name_is_sensitive(key, key_path)
+                ):
+                    result[key] = REDACTED
+                else:
+                    result[key] = self.scrub(item, key_path)
+            return result
+        if isinstance(value, list):
+            return [self.scrub(item, f"{path}[{i}]") for i, item in enumerate(value)]
+        return value
+
+    def variables(self, variables: dict[str, VariableSnapshot], path: str) -> None:
+        for name, var in variables.items():
+            var_path = f"{path}.{name}"
+            if self.name_is_sensitive(name, var_path):
+                var.value = REDACTED
+            else:
+                var.value = self.scrub(var.value, var_path)
+
+    def exception(self, exc: Any, path: str, depth: int = 0) -> None:
+        if depth > 20:
             return
+        exc.message = self.scrub_string(exc.message, f"{path}.message")
+        for i, sub in enumerate(getattr(exc, "sub_exceptions", [])):
+            self.exception(sub, f"{path}.sub_exceptions[{i}]", depth + 1)
 
 
-def _apply_redaction(
-    entry: Any,
-    path: str,
-    reason: str,
-    rule: str,
-    redactions: list[RedactionRecord],
-) -> None:
-    """Apply redaction to an entry, handling both plain values and objects."""
-    if hasattr(entry, "value"):
-        entry.value = _redact_value(entry.value)
-    # For plain values, the caller has already replaced d[key]
-    redactions.append(_make_record(path, reason, rule))
+def sanitize(report: CrashReport, config: SafedumpConfig) -> CrashReport:
+    """Apply redaction rules to a crash report, in place.
 
+    Covers frame locals and globals (including nested values), exception
+    messages along the whole chain, environment data and thread names.
+    Uses name denylists, secret patterns, optional entropy detection and
+    custom rules. Every redaction is applied and then recorded in
+    ``report.redactions``.
 
-def _apply_custom_rules(
-    entry: Any,
-    key: str,
-    path: str,
-    config: SafedumpConfig,
-    redactions: list[RedactionRecord],
-) -> None:
-    """Apply user-defined custom redaction rules."""
-    raw_value = getattr(entry, "value", entry)
-    if not _is_string(raw_value):
-        return
-
-    for rule in config.redaction_rules:
-        try:
-            if re.search(rule.pattern, raw_value):
-                replacement = re.sub(rule.pattern, rule.replacement, raw_value)
-                if hasattr(entry, "value"):
-                    entry.value = replacement
-                redactions.append(
-                    _make_record(
-                        path,
-                        f"matched custom rule: {rule.pattern}",
-                        "custom_rule",
-                    )
-                )
-                break  # one redaction per value
-        except re.error:
-            continue
-
-
-def sanitize(
-    report: CrashReport,
-    config: SafedumpConfig,
-) -> CrashReport:
-    """Apply redaction rules to a crash report.
-
-    Walks the report's variable names and string values, applying
-    denylist matching, regex secret detection, and custom user rules.
-    Every redaction is recorded in ``report.redactions``.
-
-    Returns the same report object (modified in-place).  Never raises —
-    all operations are wrapped and failures are recorded as redactions
-    with reason ``"sanitization_error"``.
-
-    Args:
-        report: The captured crash report to sanitize.
-        config: Active configuration with redaction rules.
-
-    Returns:
-        The sanitized report (same object).
+    Never raises. A failure is recorded as a ``sanitization_error`` redaction.
     """
+    s = _Sanitizer(config, report.redactions)
     try:
-        # Sanitize frame locals (primary target)
         for frame in report.frames:
-            _sanitize_dict(
-                frame.locals,
-                f"frames[{frame.index}].locals",
-                config,
-                report.redactions,
-            )
+            s.variables(frame.locals, f"frames[{frame.index}].locals")
+            s.variables(frame.globals, f"frames[{frame.index}].globals")
 
-        # Sanitize environment strings
+        s.exception(report.exception, "exception")
+
         env = report.environment
-        env_dict = {
-            "cwd": env.cwd,
-            "os_name": env.os_name,
-            "os_version": env.os_version,
-            "python_impl": env.python_impl,
-        }
-        _sanitize_dict(env_dict, "environment", config, report.redactions)
+        env.cwd = s.scrub_string(env.cwd, "environment.cwd")
+        env.python_path = [
+            s.scrub_string(p, f"environment.python_path[{i}]")
+            for i, p in enumerate(env.python_path)
+        ]
 
-        # Sanitize env var names if present
         if env.env_var_names:
-            for name in list(env.env_var_names):
-                if is_denylisted(name):
-                    env.env_var_names.remove(name)
-                    report.redactions.append(
-                        _make_record(
-                            "environment.env_var_names",
-                            f"removed denylisted name: '{name}'",
-                            "variable_name_denylist",
-                        )
-                    )
+            kept = [n for n in env.env_var_names if n in _SAFE_ENV_NAMES or not is_denylisted(n)]
+            removed = len(env.env_var_names) - len(kept)
+            if removed:
+                env.env_var_names = kept
+                s.record(
+                    "environment.env_var_names",
+                    f"removed {removed} denylisted name(s)",
+                    "variable_name_denylist",
+                )
 
-        # Sanitize argv if present
+        if env.env_var_values:
+            values = {}
+            for name, value in env.env_var_values.items():
+                path = f"environment.env_var_values.{name}"
+                if name not in _SAFE_ENV_NAMES and s.name_is_sensitive(name, path):
+                    values[name] = REDACTED
+                else:
+                    values[name] = s.scrub_string(str(value), path)
+            env.env_var_values = values
+
         if env.argv:
-            for i, arg in enumerate(env.argv):
-                if _is_string(arg):
-                    matched = _detect_secret(arg, config.secret_patterns)
-                    if matched:
-                        env.argv[i] = _redact_value(arg)
-                        report.redactions.append(
-                            _make_record(
-                                f"environment.argv[{i}]",
-                                f"matched pattern: {matched}",
-                                "secret_pattern",
-                            )
-                        )
+            env.argv = [
+                s.scrub_string(str(a), f"environment.argv[{i}]") for i, a in enumerate(env.argv)
+            ]
 
-        # Sanitize exception messages
-        exc = report.exception
-        exc_dict: dict[str, Any] = {"message": exc.message, "type": exc.type}
-        _sanitize_dict(exc_dict, "exception", config, report.redactions)
-        exc.message = exc_dict["message"]
-        exc.type = exc_dict["type"]
-
-        # Sanitize sub-exceptions recursively
-        _sanitize_exception_chain(exc, config, report.redactions)
-
-        # Sanitize thread names
         for thread in report.threads:
             if is_denylisted(thread.name):
-                thread.name = _redact_value(thread.name)
-                report.redactions.append(
-                    _make_record(
-                        f"threads[{thread.ident}].name",
-                        f"matched denylist: '{thread.name}'",
-                        "variable_name_denylist",
-                    )
+                thread.name = REDACTED
+                s.record(
+                    f"threads[{thread.ident}].name",
+                    "thread name matched denylist",
+                    "variable_name_denylist",
                 )
 
+        if report.metadata:
+            report.metadata = s.scrub(report.metadata, "metadata")
+
     except Exception as e:
-        # Never let sanitization failure prevent report generation
         report.redactions.append(
-            _make_record(
-                "sanitize",
-                f"sanitization error: {e}",
-                "sanitization_error",
-            )
+            _make_record("sanitize", f"sanitization error: {e}", "sanitization_error")
         )
 
     return report
-
-
-def _sanitize_exception_chain(
-    exc: Any,
-    config: SafedumpConfig,
-    redactions: list[RedactionRecord],
-    depth: int = 0,
-) -> None:
-    """Recursively sanitize exception chains."""
-    if depth > 10:  # safety limit
-        return
-
-    for sub in getattr(exc, "sub_exceptions", []):
-        sub_dict = {"message": getattr(sub, "message", ""), "type": getattr(sub, "type", "")}
-        _sanitize_dict(sub_dict, f"exception.sub[{depth}]", config, redactions)
-        # Write back
-        try:
-            sub.message = sub_dict["message"]
-            sub.type = sub_dict["type"]
-        except (AttributeError, TypeError):
-            pass
-        _sanitize_exception_chain(sub, config, redactions, depth + 1)

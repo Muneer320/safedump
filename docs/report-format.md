@@ -24,7 +24,7 @@ via `load_report()`.
 
 | Field | Type | Description |
 |---|---|---|
-| `schema_version` | int | Report schema version (currently 1) |
+| `schema_version` | int | Report schema version (currently 2) |
 | `safedump_version` | str | Version that captured this report |
 | `fingerprint` | str | 12-char SHA256 crash identifier |
 | `timestamp` | str | ISO-8601 capture time |
@@ -55,8 +55,9 @@ via `load_report()`.
 | `line` | int | Line number |
 | `function` | str | Function name |
 | `code_context` | array | Source lines around the crash site |
-| `locals` | object | Local variables (name -> VariableSnapshot) |
-| `is_crash_site` | bool | True for the crash frame |
+| `locals` | object | Local variables: name -> `{type, value, is_truncated}`. `value` is JSON: strings, numbers, booleans, null, lists and dicts as-is; other objects as a short `repr` string (tier 1) or an attribute dict with `__type__` (tier 2+) |
+| `globals` | object | Crash-site frame only, tier 3+: module globals in the same format |
+| `is_crash_site` | bool | True for the innermost frame, where the exception was raised (the last entry in `frames`) |
 
 ## VariableSnapshot
 

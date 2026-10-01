@@ -15,7 +15,7 @@ import threading
 from pathlib import Path
 from typing import Any, Callable
 
-from safedump._types import RedactionRule, SafedumpConfig
+from safedump._types import RedactionRule, SafedumpConfig, default_output_dir
 
 # Module-level state
 _active_config: SafedumpConfig | None = None
@@ -26,7 +26,7 @@ _original_config: SafedumpConfig | None = None  # saved for uninstall
 def configure(
     *,
     preset: str | None = None,
-    output_dir: str | Path = "~/.safedump",
+    output_dir: str | Path | None = None,
     privacy_tier: int = 1,
     include_env_names: bool = True,
     include_argv: bool = False,
@@ -50,7 +50,8 @@ def configure(
 
     Args:
         preset: Configuration preset.
-        output_dir: Directory for crash report files.
+        output_dir: Directory for crash report files. Defaults to ``$SAFEDUMP_DIR``
+            if set, otherwise ``~/.safedump``.
         privacy_tier: Capture detail level (0-4).
         include_env_names: Include environment variable names.
         include_argv: Include command-line arguments.
@@ -86,7 +87,11 @@ def configure(
                 resolved_rules.append(rule)
 
     # Expand user home directory in path
-    resolved_output_dir = Path(output_dir).expanduser().resolve()
+    resolved_output_dir = (
+        (Path(output_dir) if output_dir is not None else default_output_dir())
+        .expanduser()
+        .resolve()
+    )
 
     config = SafedumpConfig(
         output_dir=resolved_output_dir,
@@ -139,16 +144,9 @@ def reset_config() -> None:
 
 
 def save_original_config() -> None:
-    """Save the current config before install (so uninstall can restore it)."""
+    """Remember the configuration that was active when hooks were installed."""
     global _original_config
     _original_config = get_config()
-
-
-def restore_original_config() -> None:
-    """Restore the config saved by :func:`save_original_config`."""
-    global _active_config
-    if _original_config is not None:
-        _active_config = _original_config
 
 
 PRESETS = {

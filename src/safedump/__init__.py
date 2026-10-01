@@ -19,7 +19,7 @@ View crashes:
 
 from __future__ import annotations
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 # Public API — these are the only stable names.
 # Everything else is private (_-prefixed modules) and may change.
@@ -64,7 +64,7 @@ from safedump.watch import watch as _watch
 def configure(
     *,
     preset: str | None = None,
-    output_dir: str | Path = "~/.safedump",
+    output_dir: str | Path | None = None,
     privacy_tier: int = 1,
     include_env_names: bool = True,
     include_argv: bool = False,
@@ -85,7 +85,8 @@ def configure(
     Args:
         preset: Configuration preset (``\"production\"``, ``\"development\"``,
             ``\"debug\"``, ``\"minimal\"``). Overrides individual parameters.
-        output_dir: Directory for crash report files. Default ``~/.safedump``.
+        output_dir: Directory for crash report files. Default: ``$SAFEDUMP_DIR``
+            if set, otherwise ``~/.safedump``.
         privacy_tier: Capture detail level 0-4. Higher captures more.
         include_env_names: Include environment variable names (not values).
         include_argv: Include command-line arguments in reports.
@@ -100,6 +101,7 @@ def configure(
         on_crash: Callable invoked with report path after each capture.
     """
     _configure(
+        preset=preset,
         output_dir=output_dir,
         privacy_tier=privacy_tier,
         include_env_names=include_env_names,
@@ -180,15 +182,13 @@ def watch(
 
 
 def test() -> Path | None:
-    """Self-test — verify Safedump is working correctly.
+    """Self-test — verify Safedump can capture and write a report.
 
-    Deliberately raises and captures a test exception.
+    Deliberately raises and captures a test exception using the current
+    configuration. Works whether or not :func:`install` has been called.
 
     Returns:
-        Path to the generated test report.
-
-    Raises:
-        RuntimeError: If Safedump is not installed.
+        Path to the generated test report, or None if it could not be written.
     """
     return _test()
 

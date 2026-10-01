@@ -1,10 +1,13 @@
 """CLI entry point for Safedump.
 
 Usage:
-    safedump view [--json] [--html [FILE]] [FILE]
-    safedump list           List recent crashes
-    safedump test            Self-test
-    safedump --version       Show version
+    safedump [--dir DIR] view [--json] [--html [FILE]] [FILE]
+    safedump [--dir DIR] list           List recent crashes
+    safedump [--dir DIR] stats          Aggregate statistics
+    safedump [--dir DIR] test           Self-test: write a report
+    safedump --version                  Show version
+
+The report directory is --dir, else $SAFEDUMP_DIR, else ~/.safedump.
 """
 
 from __future__ import annotations
@@ -31,6 +34,11 @@ def main() -> None:
     except PackageNotFoundError:
         pkg_version = "0.0.0+dev"
     parser.add_argument("--version", action="version", version=f"safedump {pkg_version}")
+    parser.add_argument(
+        "--dir",
+        metavar="DIR",
+        help="Crash report directory (default: $SAFEDUMP_DIR, else ~/.safedump)",
+    )
     subparsers = parser.add_subparsers(dest="command", title="commands")
 
     # safedump view
@@ -99,6 +107,11 @@ def main() -> None:
     if args.command is None:
         parser.print_help()
         sys.exit(1)
+
+    if args.dir:
+        from safedump._config import configure
+
+        configure(output_dir=args.dir)
 
     if args.command == "view":
         _cmd_view(args.file, as_json=args.json, html_path=args.html)
@@ -202,15 +215,21 @@ def _cmd_clean(days: int) -> None:
 
 
 def _cmd_test() -> None:
-    """Handle the 'test' subcommand."""
+    """Handle the 'test' subcommand: capture a test exception and write a report."""
     from safedump._capture import test
 
     path = test()
-    if path is not None:
-        print(f"Self-test passed. Crash report saved: {path}")
-    else:
-        print("Self-test failed.", file=sys.stderr)
+    if path is None:
+        print("Self-test failed: could not write a crash report.", file=sys.stderr)
         sys.exit(1)
+    try:
+        load_report(path)
+    except (ValueError, FileNotFoundError) as e:
+        print(
+            f"Self-test failed: report was written but cannot be read back ({e}).", file=sys.stderr
+        )
+        sys.exit(1)
+    print(f"Self-test passed. Crash report saved: {path}")
 
 
 def _cmd_serve(*, host: str = "127.0.0.1", port: int = 4567) -> None:
@@ -226,7 +245,7 @@ def _cmd_stats() -> None:
     from safedump._loader import compute_stats
 
     stats = compute_stats(get_config().output_dir)
-    print(f"Total crashes: {stats['total']}")
+    print(f"Total crashes: {stats['total']} (in {stats['reports']} report file(s))")
 
     if stats["total"] == 0:
         return
@@ -279,8 +298,8 @@ def _doctor_checks() -> list[tuple[str, str, str]]:
     import os as _os
     import sys as _sys
 
-    from safedump._capture import is_installed
     from safedump._config import get_config
+    from safedump._types import OUTPUT_DIR_ENV_VAR
 
     results: list[tuple[str, str, str]] = []
 
@@ -288,13 +307,19 @@ def _doctor_checks() -> list[tuple[str, str, str]]:
     py_version = f"{_sys.version_info.major}.{_sys.version_info.minor}"
     results.append(("Python version", "ok", f"Python {py_version} is supported"))
 
+    source = (
+        "--dir"
+        if any(a == "--dir" or a.startswith("--dir=") for a in _sys.argv)
+        else (f"${OUTPUT_DIR_ENV_VAR}" if _os.environ.get(OUTPUT_DIR_ENV_VAR) else "default")
+    )
+
     # Check output directory
     try:
         config = get_config()
         out_dir = config.output_dir
         if out_dir.exists():
             if _os.access(str(out_dir), _os.W_OK):
-                results.append(("Output directory", "ok", f"{out_dir} is writable"))
+                results.append(("Output directory", "ok", f"{out_dir} is writable (from {source})"))
             else:
                 results.append(
                     ("Output directory", "fail", f"{out_dir} exists but is not writable")
@@ -310,17 +335,8 @@ def _doctor_checks() -> list[tuple[str, str, str]]:
     except Exception as e:
         results.append(("Configuration", "fail", f"Could not load config: {e}"))
 
-    # Check if hooks are installed
-    if is_installed():
-        results.append(("Exception hooks", "ok", "Safedump hooks are active"))
-    else:
-        results.append(
-            (
-                "Exception hooks",
-                "warn",
-                "Hooks not installed (run safedump.install() in your application)",
-            )
-        )
+    # Hooks are installed per process by the application (safedump.install()),
+    # so the CLI cannot see them; `safedump test` checks the capture pipeline instead.
 
     # Check for corrupted reports
     from safedump._loader import list_reports

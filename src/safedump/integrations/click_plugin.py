@@ -33,6 +33,16 @@ import functools
 from typing import Any, Callable
 
 
+def _is_click_control_flow(exc: BaseException) -> bool:
+    """Click/Typer use exceptions for normal control flow (ctx.exit(), Abort,
+    usage errors, typer.Exit). Those are not crashes and are not captured."""
+    return any(
+        cls.__module__.startswith(("click.", "typer."))
+        and cls.__name__ in {"Exit", "Abort", "UsageError", "BadParameter", "ClickException"}
+        for cls in type(exc).__mro__
+    )
+
+
 def wrap_click() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator that wraps a Click command to capture crash reports.
 
@@ -49,10 +59,11 @@ def wrap_click() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
             try:
                 return func(*args, **kwargs)
             except Exception as exc:
-                from safedump import capture_exception
+                if not _is_click_control_flow(exc):
+                    from safedump import capture_exception
 
-                with contextlib.suppress(BaseException):
-                    capture_exception(exc)
+                    with contextlib.suppress(BaseException):
+                        capture_exception(exc)
                 raise
 
         return wrapper

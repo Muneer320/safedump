@@ -1,5 +1,26 @@
 # Migration Guide
 
+## Upgrading to v2.1
+
+**No API changes.** Reports use schema version 2. `load_report()` migrates
+older reports automatically.
+
+### What changed
+
+- **Local values are structured.** In v2.0 every local was a `repr` string
+  cut at about 30 characters. In v2.1 lists, dicts, strings and numbers are
+  stored as JSON values, so code that read `locals[name]["value"]` as a string
+  should handle other JSON types too.
+- **The crash site is the innermost frame** (`frames[-1]`). v2.0 flagged
+  `frames[0]`. Fingerprints change as a result, so the first crash after
+  upgrading starts a new deduplicated report.
+- **`privacy_tier` now changes what is captured.** If you relied on the
+  default, nothing changes (tier 1). Tier 0 now really excludes variables.
+- **Presets are applied.** `configure(preset="production")` now turns off
+  env var names, as documented.
+- **`safedump.test()` no longer requires `install()`.**
+- **`safedump serve` deletes need the token** printed at startup.
+
 ## Upgrading to v2.0
 
 **No breaking changes.** v2.0 is a stabilization release. All v1.x

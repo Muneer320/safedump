@@ -41,7 +41,13 @@ nav:
   - HTML Export: html-export.md
   - Local Web Server: web-server.md
   - Integrations: integrations.md
+  - Frameworks:
+    - Overview: frameworks/README.md
+    - Django: frameworks/django.md
+    - FastAPI: frameworks/fastapi.md
+    - Flask: frameworks/flask.md
   - Architecture: architecture.md
+  - Privacy Tiers: privacy.md
   - Security & Privacy: security.md
   - Migration Guide: migration.md
   - Contributing: contributing.md

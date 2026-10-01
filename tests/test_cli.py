@@ -7,7 +7,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import safedump
 from safedump._config import configure
 
 
@@ -65,13 +64,14 @@ def test_list_with_empty_dir():
     assert "Traceback" not in result.stderr
 
 
-def test_test_command_needs_install():
-    """test should give a clear error when not installed."""
-    safedump.uninstall()
+def test_test_command_writes_a_report_without_install(tmp_path):
+    """`safedump test` works from a shell and honours --dir."""
     result = subprocess.run(
-        [sys.executable, "-m", "safedump", "test"],
+        [sys.executable, "-m", "safedump", "--dir", str(tmp_path), "test"],
         capture_output=True,
         text=True,
-        timeout=5,
+        timeout=30,
     )
-    assert "not installed" in result.stderr or "not installed" in result.stdout
+    assert result.returncode == 0, result.stderr
+    assert "Self-test passed" in result.stdout
+    assert list(tmp_path.glob("*.safedump.json"))

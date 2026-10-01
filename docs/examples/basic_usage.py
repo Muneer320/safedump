@@ -1,45 +1,42 @@
 """
-Example: Basic Safedump usage.
+Example: basic Safedump usage.
 
-This is a placeholder demonstrating the intended API.
-Run after Safedump is implemented:
     python docs/examples/basic_usage.py
+
+Writes two crash reports to ./crashes, then shows how to read them back.
 """
+
+import safedump
+
+
+def divide(total, parts):
+    api_token = "ghp_" + "x" * 36  # noqa: F841 -- redacted in the report, never written
+    per_part = total / parts  # raises ZeroDivisionError when parts == 0
+    return per_part
 
 
 def main():
-    import safedump
-
-    # Install crash hooks — one line
+    # Configure first, then install the global hooks.
+    safedump.configure(output_dir="./crashes", privacy_tier=1)
     safedump.install()
-    print("Safedump installed. Crash reports will be saved to ~/.safedump/")
 
-    # Configure (optional)
-    safedump.configure(
-        privacy_tier=1,  # Locals + redaction (default)
-        output_dir="./crashes",
-    )
-    print("Configuration updated.")
+    # Check that reports can be written.
+    print("Self-test report:", safedump.test())
 
-    # Self-test
+    # Manual capture inside an except block, the error is handled.
     try:
-        safedump.test()
-        print("Self-test passed! Safedump is working correctly.")
-    except NotImplementedError:
-        print("Safedump is not yet implemented. This is a development build.")
-
-    # Manual capture (for try/except blocks)
-    try:
-        _ = 1 / 0  # This will crash when uncommented in production
+        divide(10, 0)
     except ZeroDivisionError:
-        # path = safedump.capture_exception()
-        # print(f"Crash captured: {path}")
-        print("Manual capture would happen here (not yet implemented).")
-        pass
+        path = safedump.capture_exception()
+        report = safedump.load_report(path)
+        crash = report["frames"][-1]
+        print(
+            "Captured:", report["exception"]["type"], "at", f"{crash['function']}:{crash['line']}"
+        )
+        print("Locals:", {name: var["value"] for name, var in crash["locals"].items()})
 
-    # Uninstall when done
     safedump.uninstall()
-    print("Safedump uninstalled.")
+    print("Inspect the reports with: safedump --dir ./crashes list")
 
 
 if __name__ == "__main__":

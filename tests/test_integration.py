@@ -137,5 +137,5 @@ class TestNoneValuesInLocals:
         assert report is not None
         data = json.loads(report.read_text(encoding="utf-8"))
         locals_ = data["frames"][0]["locals"]
-        assert locals_["result"]["value"] == "None"
-        assert locals_["config"]["value"] == "None"
+        assert locals_["result"]["value"] is None
+        assert locals_["config"]["value"] is None

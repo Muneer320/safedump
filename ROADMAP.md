@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: **v1.3.0** (July 2026)
+Current version: **v2.1.0** (October 2026)
 
 ## v1.2 — Foundation & Shareability ✅ *Released*
 - Schema versioning + migration framework
@@ -20,16 +20,18 @@ Current version: **v1.3.0** (July 2026)
 - Click/Typer integration (`@wrap_click()`)
 - 181 tests, 6 commits
 
-## v2.0 — Stabilization & Documentation 🎯 *In progress*
-- Documentation site (MkDocs with GitHub Pages)
+## v2.0 — Stabilization & Documentation ✅ *Released*
+- Documentation site (MkDocs)
 - API freeze and deprecation policy
-- Security review and hardening
-- Performance benchmarks
-- Packaging and CI review
-- Contributing experience improvements
-- GitHub cleanup
 
-## v2.1 — Plugin Ecosystem (Future)
+## v2.1 — Correctness & Hardening ✅ *Released*
+- Privacy tiers, presets, thread/unraisable capture and custom serializers work as documented
+- Redaction before truncation, with a secret-leak regression suite
+- `SAFEDUMP_DIR` / `--dir`, gzip everywhere, occurrence-based stats
+- Hardened `safedump serve` (no CORS, Host check, delete token)
+- Documentation site published on GitHub Pages
+
+## Later — Plugin Ecosystem (only with real demand)
 - Plugin API via `importlib.metadata` entry points
 - Reference first-party plugins (numpy, pandas, PIL)
 - Fuzz testing with Hypothesis

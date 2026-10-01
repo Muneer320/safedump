@@ -4,12 +4,23 @@ Usage: safedump serve [--port PORT] [--host HOST]
 
 Bound to 127.0.0.1 by default for security. Warns if binding publicly.
 Uses stdlib http.server -- no external dependencies.
+
+Reports contain local variables, so the server is locked down:
+
+- No CORS headers: other websites open in the browser cannot read the API.
+- The Host header must name the address the server is bound to, which blocks
+  DNS-rebinding attacks.
+- DELETE requires a random per-run token (printed at startup, sent in the
+  ``X-Safedump-Token`` header).
+- Report names must look like safedump report files (no path traversal).
 """
 
 from __future__ import annotations
 
 import contextlib
 import json
+import re
+import secrets
 import sys
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -21,14 +32,41 @@ from safedump._config import get_config
 from safedump._html_render import render_html
 from safedump._loader import list_reports, load_report
 
+REPORT_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+\.safedump\.json(\.gz)?$")
+LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
+
 
 class SafedumpHandler(BaseHTTPRequestHandler):
     """HTTP request handler for the Safedump crash report browser."""
 
-    # Shared reference set by the server factory
+    # Shared state set by serve()
     _reports_dir: Path = Path()
+    _token: str = ""
+    _allowed_hosts: frozenset[str] = frozenset()
+
+    def _host_ok(self) -> bool:
+        if not self._allowed_hosts:  # bound to all interfaces: the Host can't be known
+            return True
+        host = (self.headers.get("Host") or "").strip().lower()
+        if host in self._allowed_hosts:
+            return True
+        self._send_json(403, {"error": "Forbidden host"})
+        return False
+
+    def _report_path(self, path: str) -> Path | None:
+        parts = path.split("/")
+        if len(parts) < 4 or not REPORT_NAME_RE.match(parts[3]):
+            self._send_json(404, {"error": "Invalid report name"})
+            return None
+        report_path = self._reports_dir / parts[3]
+        if not report_path.is_file():
+            self._send_json(404, {"error": "Report not found"})
+            return None
+        return report_path
 
     def do_GET(self) -> None:
+        if not self._host_ok():
+            return
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
 
@@ -45,6 +83,13 @@ class SafedumpHandler(BaseHTTPRequestHandler):
             self._send_json(500, {"error": str(e)})
 
     def do_DELETE(self) -> None:
+        if not self._host_ok():
+            return
+        if not self._token or not secrets.compare_digest(
+            self.headers.get("X-Safedump-Token", ""), self._token
+        ):
+            self._send_json(403, {"error": "Missing or invalid X-Safedump-Token"})
+            return
         parsed = urlparse(self.path)
         if parsed.path.startswith("/api/reports/"):
             self._delete_report(parsed.path)
@@ -91,18 +136,12 @@ class SafedumpHandler(BaseHTTPRequestHandler):
 
     def _serve_api_report(self, path: str) -> None:
         """Return HTML or JSON for a specific report."""
-        # Extract the filename from /api/reports/<name>/raw or /api/reports/<name>
+        # /api/reports/<name>/raw or /api/reports/<name>
+        report_path = self._report_path(path)
+        if report_path is None:
+            return
         parts = path.split("/")
-        if len(parts) < 4:
-            self._send_json(404, {"error": "Invalid report path"})
-            return
         raw = len(parts) >= 5 and parts[4] == "raw"
-        report_name = parts[3]
-
-        report_path = self._reports_dir / report_name
-        if not report_path.exists():
-            self._send_json(404, {"error": "Report not found"})
-            return
 
         try:
             data = load_report(report_path)
@@ -120,14 +159,8 @@ class SafedumpHandler(BaseHTTPRequestHandler):
             self.wfile.write(html.encode("utf-8"))
 
     def _delete_report(self, path: str) -> None:
-        parts = path.split("/")
-        if len(parts) < 4:
-            self._send_json(404, {"error": "Invalid report path"})
-            return
-        report_name = parts[3]
-        report_path = self._reports_dir / report_name
-        if not report_path.exists():
-            self._send_json(404, {"error": "Report not found"})
+        report_path = self._report_path(path)
+        if report_path is None:
             return
         try:
             report_path.unlink()
@@ -138,7 +171,7 @@ class SafedumpHandler(BaseHTTPRequestHandler):
     def _send_json(self, status: int, data: Any) -> None:
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
 
@@ -237,10 +270,19 @@ def serve(host: str = "127.0.0.1", port: int = 4567) -> None:
     # Try the requested port, fall back to subsequent ports
     for attempt in range(5):
         try:
-            SafedumpHandler._reports_dir = reports_dir
+            bound_port = port + attempt
+            server = HTTPServer((host, bound_port), SafedumpHandler)
+            url = f"http://{host}:{bound_port}"
 
-            server = HTTPServer((host, port + attempt), SafedumpHandler)
-            url = f"http://{host}:{port + attempt}"
+            SafedumpHandler._reports_dir = reports_dir
+            SafedumpHandler._token = secrets.token_urlsafe(24)
+            if host in {"0.0.0.0", "::", ""}:
+                SafedumpHandler._allowed_hosts = frozenset()
+            else:
+                names = {host.lower()} | (
+                    LOCAL_HOSTS if host in {"127.0.0.1", "localhost", "::1"} else set()
+                )
+                SafedumpHandler._allowed_hosts = frozenset(f"{n}:{bound_port}" for n in names)
 
             if host != "127.0.0.1":
                 print(
@@ -250,6 +292,7 @@ def serve(host: str = "127.0.0.1", port: int = 4567) -> None:
 
             print(f"Safedump server started: {url}", file=sys.stderr)
             print(f"Reports directory: {reports_dir}", file=sys.stderr)
+            print(f"API delete token (X-Safedump-Token): {SafedumpHandler._token}", file=sys.stderr)
 
             # Try to open browser
             with contextlib.suppress(Exception):

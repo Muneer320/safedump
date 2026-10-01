@@ -1,11 +1,10 @@
 """Crash capture engine for Safedump.
 
 Orchestrates the capture -> sanitize -> serialize -> persist pipeline.
-This module runs inside exception hooks -- it must never fail
-and must always preserve the original traceback.
+The hook entry points run inside Python's exception hooks: they must never
+fail and must always preserve the original traceback output.
 
-Frame walking, data capture, and hook management were split into
-_frame_walker.py and _hook_manager.py respectively.
+Frame walking and data capture live in ``_frame_walker.py``.
 """
 
 # SPDX-FileCopyrightText: 2026 Muneer Alam
@@ -15,6 +14,7 @@ _frame_walker.py and _hook_manager.py respectively.
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import sys
 import threading
 import traceback
@@ -24,21 +24,17 @@ from typing import Any
 
 from safedump._config import get_config, save_original_config
 from safedump._frame_walker import (
-    MAX_FRAMES,
     capture_environment,
     capture_exception_chain,
-    capture_frame,
+    capture_frames,
     capture_threads,
     compute_fingerprint,
-    walk_traceback,
 )
 from safedump._sanitize import sanitize
 from safedump._serialize import serialize
 from safedump._storage import save
-from safedump._types import CrashReport
+from safedump._types import CrashReport, SafedumpConfig
 
-# Pre-allocated fallback buffer for MemoryError scenarios
-_fallback_buffer: bytearray | None = None
 # Saved original exception hooks for uninstall
 _original_excepthook: Any = None
 _original_threading_excepthook: Any = None
@@ -47,96 +43,120 @@ _original_unraisablehook: Any = None
 _installed: bool = False
 
 
+def _build_report(
+    exc_value: BaseException,
+    tb: Any,
+    config: SafedumpConfig,
+    crashed_thread: threading.Thread | None = None,
+) -> CrashReport:
+    report = CrashReport(
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        exception=capture_exception_chain(exc_value),
+        environment=capture_environment(config),
+        threads=capture_threads(crashed_thread),
+    )
+    if tb is not None:
+        report.frames = capture_frames(tb, config)
+    report.fingerprint = compute_fingerprint(report)
+    report.first_seen = report.last_seen = report.timestamp
+    return report
+
+
+def _process(report: CrashReport, config: SafedumpConfig) -> Path | None:
+    """Run the user hook, redact, serialize and write. Returns the report path."""
+    if config.before_capture is not None:
+        try:
+            result = config.before_capture(report)
+            if result is not None:
+                report = result
+        except Exception:
+            pass
+    report = sanitize(report, config)
+    path = save(serialize(report, config), config, report)
+    if path is not None and config.on_crash is not None:
+        with contextlib.suppress(Exception):
+            config.on_crash(path)
+    return path
+
+
+def _capture_from_hook(
+    exc_value: BaseException | None,
+    tb: Any,
+    crashed_thread: threading.Thread | None = None,
+) -> None:
+    """Capture from inside an exception hook. Never raises."""
+    if exc_value is None:
+        return
+    try:
+        config = get_config()
+        path = _process(_build_report(exc_value, tb, config, crashed_thread), config)
+        if path is not None:
+            print(f"Crash report saved: {path}", file=sys.stderr)
+        else:
+            print("Safedump: could not write crash report", file=sys.stderr)
+    except Exception as e:
+        print(f"Safedump internal error: {e}", file=sys.stderr)
+
+
 def crash_handler(
     exc_type: type[BaseException],
     exc_value: BaseException,
     exc_tb: Any,
 ) -> None:
-    """Exception hook -- called by Python when an unhandled crash occurs.
-
-    This is the outer guard.  If ANYTHING inside this function fails,
-    the original traceback is printed and the process continues.
-    """
-    global _fallback_buffer
-
-    # Save original exception info for fallback
-    saved_type = exc_type
-    saved_value = exc_value
-    saved_tb = exc_tb
-
+    """``sys.excepthook`` replacement: capture a report, then print the traceback as usual."""
     try:
-        config = get_config()
-
-        # Build CrashReport
-        report = CrashReport(
-            timestamp=datetime.now(timezone.utc).isoformat(),
-            exception=capture_exception_chain(exc_value),
-            environment=capture_environment(config),
-            threads=capture_threads(),
-        )
-
-        # Walk frames
-        frames = walk_traceback(exc_tb)
-        for i, (frame, lineno) in enumerate(frames):
-            if i >= MAX_FRAMES:
-                break
-            fs = capture_frame(frame, lineno, i, config)
-            report.frames.append(fs)
-
-        # Compute fingerprint after frames are populated
-        report.fingerprint = compute_fingerprint(report)
-        now_iso = report.timestamp
-        report.first_seen = now_iso
-        report.last_seen = now_iso
-
-        # Apply before_capture hook
-        if config.before_capture is not None:
-            try:
-                result = config.before_capture(report)
-                if result is not None:
-                    report = result
-            except Exception:
-                pass
-
-        # Sanitize
-        report = sanitize(report, config)
-
-        # Serialize
-        json_str = serialize(report, config)
-
-        # Persist
-        path = save(json_str, config, report)
-
-        if path is not None:
-            print(f"Crash report saved: {path}", file=sys.stderr)
-            # Run on_crash hook if configured
-            with contextlib.suppress(Exception):
-                if config.on_crash is not None:
-                    config.on_crash(path)
-        else:
-            print("Safedump: could not write crash report", file=sys.stderr)
-
-    except Exception as e:
-        print(f"Safedump internal error: {e}", file=sys.stderr)
-
+        _capture_from_hook(exc_value, exc_tb)
     finally:
         try:
-            traceback.print_exception(saved_type, saved_value, saved_tb)
+            traceback.print_exception(exc_type, exc_value, exc_tb)
         except Exception:
-            print(f"{saved_type.__name__}: {saved_value}", file=sys.stderr)
+            print(f"{getattr(exc_type, '__name__', exc_type)}: {exc_value}", file=sys.stderr)
+
+
+def thread_crash_handler(args: Any) -> None:
+    """``threading.excepthook`` replacement.
+
+    Receives a single ``threading.ExceptHookArgs`` object. ``SystemExit`` in a
+    thread is ignored, exactly like Python's default hook. After capturing, the
+    original hook prints the usual "Exception in thread ..." message.
+    """
+    try:
+        if args.exc_type is not SystemExit:
+            _capture_from_hook(args.exc_value, args.exc_traceback, args.thread)
+    finally:
+        original = _original_threading_excepthook or getattr(threading, "__excepthook__", None)
+        try:
+            original(args)
+        except Exception:
+            with contextlib.suppress(Exception):
+                traceback.print_exception(args.exc_type, args.exc_value, args.exc_traceback)
+
+
+def unraisable_handler(unraisable: Any) -> None:
+    """``sys.unraisablehook`` replacement.
+
+    Receives a ``sys.UnraisableHookArgs`` object, for example for an exception
+    raised in ``__del__``. After capturing, the original hook prints the
+    standard message.
+    """
+    try:
+        _capture_from_hook(unraisable.exc_value, unraisable.exc_traceback)
+    finally:
+        original = _original_unraisablehook or sys.__unraisablehook__
+        with contextlib.suppress(Exception):
+            original(unraisable)
 
 
 def install() -> None:
     """Install Safedump crash hooks globally.
 
-    Replaces sys.excepthook, threading.excepthook, and
-    sys.unraisablehook with the Safedump crash handler.
+    Replaces sys.excepthook, threading.excepthook, and sys.unraisablehook.
     Uses the current configuration set via configure().
 
     Safe to call multiple times. Subsequent calls are no-ops.
     """
     global _installed, _original_excepthook, _original_threading_excepthook
-    global _original_unraisablehook, _fallback_buffer
+    global _original_unraisablehook
 
     if _installed:
         return
@@ -144,15 +164,12 @@ def install() -> None:
     save_original_config()
 
     _original_excepthook = sys.excepthook
-    _original_threading_excepthook = getattr(threading, "_excepthook", None)
+    _original_threading_excepthook = threading.excepthook
     _original_unraisablehook = sys.unraisablehook
 
     sys.excepthook = crash_handler
-    threading.excepthook = crash_handler  # type: ignore[assignment]
-    sys.unraisablehook = crash_handler  # type: ignore[assignment]
-
-    if _fallback_buffer is None:
-        _fallback_buffer = bytearray(1_048_576)
+    threading.excepthook = thread_crash_handler
+    sys.unraisablehook = unraisable_handler
 
     _installed = True
     print(f"Safedump installed. Crash reports -> {get_config().output_dir}", file=sys.stderr)
@@ -160,9 +177,6 @@ def install() -> None:
 
 def uninstall() -> None:
     """Restore original Python exception hooks.
-
-    Reverses install() by restoring sys.excepthook, threading.excepthook,
-    and sys.unraisablehook to their original values.
 
     Safe to call multiple times. Subsequent calls are no-ops.
     """
@@ -183,11 +197,7 @@ def uninstall() -> None:
 
 
 def is_installed() -> bool:
-    """Check if Safedump crash hooks are currently active.
-
-    Returns:
-        True if install() has been called and uninstall() has not.
-    """
+    """Check if Safedump crash hooks are currently active."""
     return _installed
 
 
@@ -203,6 +213,9 @@ def capture_exception(
     If no exception is provided, captures the currently handled
     exception via sys.exc_info().
 
+    Overrides apply to this capture only. The global configuration is not
+    modified, so concurrent captures in other threads are unaffected.
+
     Args:
         exc: The exception to capture. If None, uses sys.exc_info().
         privacy_tier: Override the configured privacy tier for this capture.
@@ -213,60 +226,31 @@ def capture_exception(
 
     Raises:
         RuntimeError: If no exception is available and none was provided.
+        ValueError: If ``privacy_tier`` is outside 0-4.
     """
     if exc is None:
         exc = sys.exc_info()[1]
     if exc is None:
         raise RuntimeError("No exception to capture")
 
-    tb = exc.__traceback__
-
     config = get_config()
-    saved_tier = config.privacy_tier
-    saved_dir = config.output_dir
+    overrides: dict[str, Any] = {}
+    if privacy_tier is not None:
+        overrides["privacy_tier"] = privacy_tier
+    if output_dir is not None:
+        overrides["output_dir"] = Path(output_dir).expanduser()
+    if overrides:
+        config = dataclasses.replace(config, **overrides)
 
-    try:
-        if privacy_tier is not None:
-            config.privacy_tier = privacy_tier
-        if output_dir is not None:
-            config.output_dir = Path(output_dir)
-
-        report = CrashReport(
-            timestamp=datetime.now(timezone.utc).isoformat(),
-            exception=capture_exception_chain(exc),
-            environment=capture_environment(config),
-            threads=capture_threads(),
-        )
-
-        if tb is not None:
-            frames = walk_traceback(tb)
-            for i, (frame, lineno) in enumerate(frames):
-                if i >= config.max_depth:
-                    break
-                report.frames.append(capture_frame(frame, lineno, i, config))
-
-        report.fingerprint = compute_fingerprint(report)
-        now_iso = report.timestamp
-        report.first_seen = now_iso
-        report.last_seen = now_iso
-
-        report = sanitize(report, config)
-        json_str = serialize(report, config)
-        path = save(json_str, config, report)
-        if path is not None and config.on_crash is not None:
-            with contextlib.suppress(Exception):
-                config.on_crash(path)
-        return path
-    finally:
-        config.privacy_tier = saved_tier
-        config.output_dir = saved_dir
+    return _process(_build_report(exc, exc.__traceback__, config), config)
 
 
 def test() -> Path | None:
-    """Self-test -- verify Safedump is working."""
-    if not _installed:
-        raise RuntimeError("safedump is not installed. Call safedump.install() first.")
+    """Self-test: raise and capture an exception with the current configuration.
 
+    Works whether or not the hooks are installed, so it can be used from the
+    ``safedump test`` command to check that reports can be written.
+    """
     try:
         raise RuntimeError("safedump self-test exception")
     except RuntimeError:

@@ -10,13 +10,14 @@ and fallback paths. Runs in the crash-time hot path.
 
 from __future__ import annotations
 
-import hashlib
 import os
 import re
 import tempfile
 from pathlib import Path
 
 from safedump._types import CrashReport, SafedumpConfig
+
+GZIP_MAGIC = bytes([0x1F, 0x8B])
 
 
 def _sanitize_filename_component(name: str) -> str:
@@ -31,15 +32,16 @@ def _sanitize_filename_component(name: str) -> str:
 
 
 def _compute_hash(report: CrashReport) -> str:
-    """Generate a short hash from exception type and crash site."""
-    digest = hashlib.sha256()
-    digest.update(report.exception.type.encode())
-    digest.update(report.exception.message.encode()[:200])
-    if report.frames:
-        first = report.frames[0]
-        digest.update(first.file.encode())
-        digest.update(str(first.line).encode())
-    return digest.hexdigest()[:8]
+    """Short hash for the filename: the first 8 characters of the fingerprint.
+
+    Because the filename carries it, duplicates can be found by filename
+    without parsing every report in the directory.
+    """
+    if report.fingerprint:
+        return report.fingerprint[:8]
+    from safedump._frame_walker import compute_fingerprint
+
+    return compute_fingerprint(report)[:8]
 
 
 def generate_filename(report: CrashReport) -> str:
@@ -136,24 +138,28 @@ def save(json_str: str, config: SafedumpConfig, report: CrashReport) -> Path | N
     else:
         content_to_write = json_str
 
-    # Check for existing report with same fingerprint (dedup)
+    # Same fingerprint already on disk: bump its counter instead of writing a new file.
+    # The first occurrence's details are kept; occurrence_count and last_seen are updated.
     if report.fingerprint:
         existing = _find_existing_by_fingerprint(config.output_dir, report.fingerprint)
         if existing is not None:
             try:
-                # Load existing report, increment occurrence count
-                data = _json.loads(existing.read_text(encoding="utf-8"))
+                data = _json.loads(_read_report_bytes(existing))
                 data["occurrence_count"] = data.get("occurrence_count", 1) + 1
                 data["last_seen"] = report.timestamp
-                # Re-serialize and write back
-                updated_json = _json.dumps(data, indent=2, ensure_ascii=False)
+                updated = _json.dumps(data, indent=2, ensure_ascii=False)
+                payload: str | bytes = (
+                    gzip.compress(updated.encode("utf-8"))
+                    if existing.name.endswith(".gz")
+                    else updated
+                )
                 primary_dir = _ensure_output_dir(config.output_dir)
                 if primary_dir is not None:
-                    result = _write_atomic(primary_dir, existing.name, updated_json)
+                    result = _write_atomic(primary_dir, existing.name, payload)
                     if result is not None:
                         return result
-            except (OSError, _json.JSONDecodeError):
-                pass  # Fall through to normal save if dedup fails
+            except (OSError, ValueError):
+                pass  # fall through to writing a new report
 
     # Primary path
     primary_dir = _ensure_output_dir(config.output_dir)
@@ -173,11 +179,20 @@ def save(json_str: str, config: SafedumpConfig, report: CrashReport) -> Path | N
     return None
 
 
-def _find_existing_by_fingerprint(output_dir: Path, fingerprint: str) -> Path | None:
-    """Find an existing report file with the given fingerprint.
+def _read_report_bytes(path: Path) -> bytes:
+    """Read a report file, transparently decompressing ``.gz`` reports."""
+    import gzip
 
-    Scans the output directory for reports whose JSON contains the
-    matching fingerprint. Returns the most recently modified match.
+    raw = path.read_bytes()
+    if raw[:2] == GZIP_MAGIC:
+        raw = gzip.decompress(raw)
+    return raw
+
+
+def _find_existing_by_fingerprint(output_dir: Path, fingerprint: str) -> Path | None:
+    """Find the most recent report with this fingerprint.
+
+    Only files whose name carries the fingerprint's hash are opened.
     """
     import json as _json
 
@@ -185,21 +200,14 @@ def _find_existing_by_fingerprint(output_dir: Path, fingerprint: str) -> Path | 
         return None
 
     candidates = []
-    for p in output_dir.glob("*.safedump.json*"):
+    for p in output_dir.glob(f"*-{fingerprint[:8]}.safedump.json*"):
         try:
-            import gzip
-
-            raw = p.read_bytes()
-            if raw[:2] == b"\x1f\x8b":
-                raw = gzip.decompress(raw)
-            data = _json.loads(raw)
-            if data.get("fingerprint") == fingerprint:
+            if _json.loads(_read_report_bytes(p)).get("fingerprint") == fingerprint:
                 candidates.append(p)
-        except (OSError, _json.JSONDecodeError):
+        except (OSError, ValueError):
             continue
 
     if not candidates:
         return None
-    # Return most recently modified
     candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
     return candidates[0]

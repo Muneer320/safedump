@@ -6,11 +6,13 @@ Safedump is designed to capture debugging context without compromising privacy. 
 
 | Tier | Name | Captures | Safe to Share? |
 |---|---|---|---|
-| **0** | Minimal | Stack trace + exception info only | ✅ Yes |
-| **1** | Standard (default) | Tier 0 + local variables with **mandatory redaction** | ✅ After visual review |
-| **2** | Verbose | Tier 1 + instance attributes, function arguments | ⚠️ Review before sharing |
-| **3** | Full | Tier 2 + globals (redacted), env var names | ⚠️ Review carefully |
-| **4** | Debug | Everything including env var values | ❌ Never share without manual audit |
+| **0** | Minimal | Exception chain, stack frames (file, line, function, source lines). No variable values, no env var names, no argv | ✅ Yes |
+| **1** | Standard (default) | Tier 0 + local variables (lists, dicts and strings as values; other objects as a short `repr`), env var **names** if `include_env_names`, argv if `include_argv`. All redacted | ✅ After visual review |
+| **2** | Verbose | Tier 1 + objects expanded into their attributes (dataclass fields / instance `__dict__`), redacted the same way | ⚠️ Review before sharing |
+| **3** | Full | Tier 2 + the module globals of the crash-site frame (modules, functions and classes are skipped), redacted | ⚠️ Review carefully |
+| **4** | Debug | Tier 3 + environment variable **values**. Values whose name is on the denylist are replaced, and values matching secret patterns are scrubbed | ❌ Never share without manual audit |
+
+Values are expanded up to `max_depth` levels and `max_collection_items` entries, and strings are cut to `max_string_length` characters. The cut happens **after** redaction, so a secret is never half-kept at the boundary.
 
 ## What Gets Redacted (Tier 1+)
 
@@ -22,7 +24,7 @@ Variables whose names contain these patterns are redacted:
 Matching uses tiered logic: ≤3-char patterns match exactly, 4-char patterns match word boundaries, ≥5-char patterns match substrings. This prevents false positives like `keyboard` matching `key`.
 
 ### Credential Pattern Detection
-String values matching known credential formats are redacted:
+Credentials found anywhere in a string are replaced with `[REDACTED]`. The rest of the string is kept, so an exception message stays readable. The search covers local values, nested inside lists and dicts, exception messages, argv and env var values. Known formats:
 - AWS Access Keys (`AKIA...`)
 - GitHub Tokens (`ghp_...`)
 - Stripe Keys (`sk_live_...`)
@@ -42,7 +44,7 @@ safedump.configure(
 
 ## What Is NEVER Captured (by default)
 
-- Environment variable **values** (names only, at Tier 3+)
+- Environment variable **values** (only at Tier 4)
 - Command-line arguments (opt-in via `include_argv=True`)
 - File contents
 - Network traffic

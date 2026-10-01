@@ -14,9 +14,11 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any, Callable
 
 from safedump._types import CRASH_REPORT_SCHEMA_VERSION
+
+GZIP_MAGIC = bytes([0x1F, 0x8B])
 
 # ── Schema Migration Framework ─────────────────────────────────────
 
@@ -46,6 +48,43 @@ def _migrate_v0_to_v1(raw: dict[str, Any]) -> dict[str, Any]:
 MIGRATIONS[0] = _migrate_v0_to_v1
 
 
+def _migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
+    """Migrate schema v1 to v2.
+
+    v1 (safedump <= 2.0) flagged the *outermost* frame as the crash site; v2
+    flags the innermost frame, where the exception was raised. v1 local values
+    were repr strings, which v2 readers still accept as plain string values.
+    """
+    frames = raw.get("frames") or []
+    for i, frame in enumerate(frames):
+        if isinstance(frame, dict):
+            frame["is_crash_site"] = i == len(frames) - 1
+    return raw
+
+
+MIGRATIONS[1] = _migrate_v1_to_v2
+
+
+def read_report_json(path: str | Path) -> dict[str, Any]:
+    """Parse a report file (plain or gzip) without migrations. Raises ValueError/OSError."""
+    import gzip
+
+    raw = Path(path).read_bytes()
+    if raw[:2] == GZIP_MAGIC:
+        raw = gzip.decompress(raw)
+    data: dict[str, Any] = json.loads(raw)
+    return data
+
+
+def crash_site_frame(data: dict[str, Any]) -> dict[str, Any] | None:
+    """The crash-site frame of a (migrated) report dict."""
+    frames = [f for f in data.get("frames") or [] if isinstance(f, dict)]
+    for frame in reversed(frames):
+        if frame.get("is_crash_site"):
+            return frame
+    return frames[-1] if frames else None
+
+
 def load_report(path: str | Path) -> dict[str, Any]:
     """Load a Safedump crash report from disk, applying migrations.
 
@@ -70,15 +109,11 @@ def load_report(path: str | Path) -> dict[str, Any]:
         raise FileNotFoundError(f"Crash report not found: {filepath}")
 
     try:
-        raw = filepath.read_bytes()
-        # Detect gzip via magic bytes
-        if raw[:2] == b"\x1f\x8b":
-            raw = gzip.decompress(raw)
-        data = json.loads(raw)
-    except (json.JSONDecodeError, OSError, gzip.BadGzipFile) as e:
+        data = read_report_json(filepath)
+    except (ValueError, OSError, EOFError, gzip.BadGzipFile) as e:
         raise ValueError(f"Could not load crash report: {e}") from None
 
-    if "safedump_version" not in data:
+    if not isinstance(data, dict) or "safedump_version" not in data:
         raise ValueError(f"Not a valid safedump report (missing safedump_version): {filepath}")
 
     # Determine current schema version and apply migrations
@@ -88,7 +123,7 @@ def load_report(path: str | Path) -> dict[str, Any]:
             data = MIGRATIONS[v](data)
         data["schema_version"] = v + 1
 
-    return cast(dict[str, Any], data)
+    return data
 
 
 def find_latest(output_dir: str | Path) -> Path | None:
@@ -149,8 +184,8 @@ def list_reports(
         filtered: list[Path] = []
         for report_path in reports:
             try:
-                data = json.loads(report_path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
+                data = read_report_json(report_path)
+            except (ValueError, OSError, EOFError):
                 continue
             exc = data.get("exception", {})
 
@@ -266,15 +301,15 @@ def clean_older_than(output_dir: str | Path, days: int) -> int:
 def compute_stats(output_dir: str | Path) -> dict[str, Any]:
     """Compute aggregate crash statistics.
 
-    Args:
-        output_dir: Directory containing crash reports.
+    Counts occurrences, not files: a deduplicated report that occurred five
+    times counts five times. Compressed reports are included.
 
     Returns:
-        Dict with keys: total, by_type, by_day, by_site.
+        Dict with keys: total, reports, by_type, by_day, by_site.
     """
     directory = Path(output_dir).expanduser()
     if not directory.exists():
-        return {"total": 0, "by_type": {}, "by_day": {}, "by_site": {}}
+        return {"total": 0, "reports": 0, "by_type": {}, "by_day": {}, "by_site": {}}
 
     from collections import Counter
 
@@ -282,26 +317,40 @@ def compute_stats(output_dir: str | Path) -> dict[str, Any]:
     day_counts: Counter[str] = Counter()
     site_counts: Counter[str] = Counter()
     total = 0
+    files = 0
 
-    for report_path in directory.glob("*.safedump.json"):
+    for report_path in directory.glob("*.safedump.json*"):
         try:
-            data = json.loads(report_path.read_text(encoding="utf-8"))
-            exc = data.get("exception", {})
-            type_counts[exc.get("type", "Unknown")] += 1
-            frames = data.get("frames", [])
-            if frames:
-                site = f"{frames[0].get('file', '?')}:{frames[0].get('line', '?')}"
-                site_counts[site] += 1
-            ts = data.get("timestamp", "")
-            if ts:
-                day_counts[ts[:10]] += 1
-            total += 1
-        except (json.JSONDecodeError, OSError):
+            data = load_report(report_path)
+        except (ValueError, OSError):
             continue
+        count = data.get("occurrence_count") or 1
+        files += 1
+        total += count
+        type_counts[data.get("exception", {}).get("type", "Unknown")] += count
+        site = crash_site_frame(data)
+        if site:
+            site_counts[f"{site.get('file', '?')}:{site.get('line', '?')}"] += count
+        ts = data.get("timestamp", "")
+        if ts:
+            day_counts[ts[:10]] += count
 
     return {
         "total": total,
+        "reports": files,
         "by_type": dict(type_counts.most_common(10)),
         "by_day": dict(sorted(day_counts.items())),
         "by_site": dict(site_counts.most_common(10)),
     }
+
+
+def format_value(value: Any, max_chars: int = 2000) -> str:
+    """Render a captured value for display: strings as-is, structures as compact JSON."""
+    if isinstance(value, str):
+        text = value
+    else:
+        try:
+            text = json.dumps(value, ensure_ascii=False, separators=(", ", ": "))
+        except (TypeError, ValueError):
+            text = str(value)
+    return text if len(text) <= max_chars else text[:max_chars] + "..."

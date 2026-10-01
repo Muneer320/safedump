@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "safedump"
-version = "2.0.0"
+version = "2.1.0"
 description = "Local-first crash diagnostics framework for Python. Capture debugging context, redact secrets, inspect crashes offline."
 readme = "README.md"
 license = { text = "MIT" }
@@ -22,7 +22,7 @@ keywords = [
     "development",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
@@ -91,7 +91,7 @@ filterwarnings = [
 
 [tool.coverage.run]
 source = ["src/safedump"]
-omit = ["src/safedump/_cli.py"]
+omit = ["src/safedump/__main__.py"]
 
 [tool.coverage.report]
 exclude_lines = [

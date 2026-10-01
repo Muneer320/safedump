@@ -47,9 +47,13 @@ class TestMigrationFramework:
         assert result["exception"]["type"] == "KeyError"
         assert result["exception"]["message"] == "missing"
 
-    def test_migrate_v1_is_noop(self):
-        # v1 matches current schema, no migrations needed
-        assert CRASH_REPORT_SCHEMA_VERSION == 1
+    def test_migrate_v1_to_v2_moves_crash_site_to_innermost_frame(self):
+        from safedump._loader import MIGRATIONS
+
+        v1 = {"frames": [{"is_crash_site": True}, {"is_crash_site": False}]}
+        migrated = MIGRATIONS[1](v1)
+        assert [f["is_crash_site"] for f in migrated["frames"]] == [False, True]
+        assert CRASH_REPORT_SCHEMA_VERSION == 2
 
 
 class TestLoadReportMigration:

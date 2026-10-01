@@ -9,6 +9,7 @@ These are NOT part of the public API. They may change without notice.
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from dataclasses import dataclass, field
@@ -18,8 +19,20 @@ from typing import Any, Callable, NamedTuple
 
 # ── Version ──────────────────────────────────────────────────────────
 
-__version__ = "2.0.0"
-CRASH_REPORT_SCHEMA_VERSION = 1
+__version__ = "2.1.0"
+# v2: locals are structured JSON values (not repr strings), the crash site is the
+# innermost frame, and frames may carry ``globals`` (privacy tier 3+).
+CRASH_REPORT_SCHEMA_VERSION = 2
+
+# Environment variable that sets the default report directory for both the
+# library and the CLI.
+OUTPUT_DIR_ENV_VAR = "SAFEDUMP_DIR"
+
+
+def default_output_dir() -> Path:
+    """``$SAFEDUMP_DIR`` if set, otherwise ``~/.safedump``."""
+    return Path(os.environ.get(OUTPUT_DIR_ENV_VAR) or "~/.safedump").expanduser()
+
 
 # ── Configuration ────────────────────────────────────────────────────
 
@@ -42,15 +55,13 @@ class RedactionRule(NamedTuple):
 class SafedumpConfig:
     """Validated, immutable configuration."""
 
-    output_dir: Path = field(default_factory=lambda: Path.home() / ".safedump")
+    output_dir: Path = field(default_factory=default_output_dir)
     privacy_tier: int = 1
     include_env_names: bool = True
     include_argv: bool = False
     max_string_length: int = 10000
     max_collection_items: int = 100
     max_depth: int = 5
-    max_report_size_bytes: int = 10_485_760  # 10 MB
-    generation_timeout_seconds: int = 30
     redaction_rules: list[RedactionRule] = field(default_factory=list)
     before_capture: Callable[[Any], Any | None] | None = None
     enable_entropy_detection: bool = False
@@ -72,19 +83,14 @@ class SafedumpConfig:
             raise ValueError(f"max_depth must be >= 1, got {self.max_depth}")
 
     @property
-    def denylist(self) -> list[str]:
-        """Variable name denylist — what to redact from captured locals."""
-        return list(DENYLIST_SUBSTRING_MATCH)  # placeholder — will expand per C13
-
-    @property
     def secret_patterns(self) -> list[str]:
         """Regex patterns for detecting secrets in values."""
         return [
             r"AKIA[0-9A-Z]{16}",  # AWS Access Key
-            r"ghp_[0-9a-zA-Z]{36}",  # GitHub Personal Access Token
-            r"gho_[0-9a-zA-Z]{36}",  # GitHub OAuth Token
-            r"sk_live_[0-9a-zA-Z]{24}",  # Stripe Live Key
-            r"sk_test_[0-9a-zA-Z]{24}",  # Stripe Test Key
+            r"ghp_[0-9a-zA-Z]{36,}",  # GitHub Personal Access Token
+            r"gho_[0-9a-zA-Z]{36,}",  # GitHub OAuth Token
+            r"sk_live_[0-9a-zA-Z]{24,}",  # Stripe Live Key
+            r"sk_test_[0-9a-zA-Z]{24,}",  # Stripe Test Key
             r"eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+",  # JWT
         ]
 
@@ -183,6 +189,8 @@ class FrameSnapshot:
     code_context: list[str] = field(default_factory=list)
     locals: dict[str, VariableSnapshot] = field(default_factory=dict)
     is_crash_site: bool = False
+    # Module globals of the crash-site frame (privacy tier 3+ only)
+    globals: dict[str, VariableSnapshot] = field(default_factory=dict)
 
 
 @dataclass
