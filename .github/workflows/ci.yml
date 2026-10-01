@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install mypy
+        run: pip install mypy pytest
       - name: Run mypy
         run: mypy src/
 
