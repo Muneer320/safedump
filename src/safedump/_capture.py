@@ -124,8 +124,11 @@ def thread_crash_handler(args: Any) -> None:
         if args.exc_type is not SystemExit:
             _capture_from_hook(args.exc_value, args.exc_traceback, args.thread)
     finally:
-        original = _original_threading_excepthook or getattr(threading, "__excepthook__", None)
+        # threading.__excepthook__ only exists on Python 3.10+
+        original: Any = _original_threading_excepthook or getattr(threading, "__excepthook__", None)
         try:
+            if original is None:
+                raise RuntimeError("no default threading hook")
             original(args)
         except Exception:
             with contextlib.suppress(Exception):
