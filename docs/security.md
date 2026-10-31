@@ -1,88 +1,36 @@
-# Security & Privacy
+# Security and privacy boundaries
 
-Safedump is designed for **privacy-first** crash diagnostics. It
-never sends data over the network and provides multiple layers of
-secret redaction.
+safedump writes exception diagnostics to the local filesystem. Capturing a report does not upload it or require an account. Reports can still contain sensitive application state: review them before moving them to a ticket, chat, shared directory or public repository.
 
-## Network Isolation
+## Redaction helps; review is still required
 
-Safedump makes **zero** network calls. There is no telemetry, no
-analytics, no phone-home mechanism. Crash reports are stored
-exclusively on the local filesystem.
+The sanitizer applies variable-name rules and credential-pattern matching before storage. Entropy detection is optional and disabled by default. Custom `RedactionRule` patterns and `before_capture` hooks let an application filter its own domain-specific data.
 
-The only exception is the optional local web server (`safedump serve`),
-which binds to `127.0.0.1` by default and never reaches the network.
+Redaction cannot recognize every secret or private value. Source context can contain literal credentials; exception messages, paths and ordinary-looking values can reveal private information. A redacted local variable does not mean its source-code literal has disappeared. Even tier 0 is not automatically safe to publish.
 
-## Secret Redaction
+See [Privacy](privacy.md) for the current tier table. Tiers 2–4 add object attributes, crash-site globals and environment values respectively; increasing a tier changes the exposure. Presets override selected individual settings, as described in [Configuration](getting-started/configuration.md).
 
-Safedump applies three layers of redaction before saving a report:
+## Files and permissions
 
-### 1. Variable Name Denylist
+Reports use JSON, optionally compressed with gzip; the loader does not use pickle. Storage uses a temporary file and replacement rather than writing a partial final report in place. It requests owner-only file (`0600`) and directory (`0700`) modes. Windows ACLs and the destination filesystem determine effective access; POSIX mode values are not a cross-platform secrecy guarantee.
 
-Variable names matching known secret patterns (e.g., `password`,
-`token`, `api_key`, `secret`) are redacted by name. The denylist
-contains 70+ common patterns.
+Protect the report directory, backups and exported HTML with the same care as application logs. HTML contains the captured data. Compression does not encrypt it. Use OS/storage access controls and a retention policy appropriate to the application.
 
-### 2. Regex Credential Detection
+## Optional local server
 
-Values matching credential patterns are redacted:
+`safedump serve` starts a browser viewer on `127.0.0.1` by default. It accepts browser connections and exposes stored reports to clients that can reach it; it is not a remote upload service or a public authenticated dashboard. Keep it on loopback. Do not forward its port or use a shared report directory without understanding the access boundary.
 
-- AWS Access Keys (`AKIA...`)
-- GitHub Personal Access Tokens (`ghp_...`)
-- GitHub Fine-Grained Tokens (`github_pat_...`)
-- Slack Bot Tokens (`xoxb-...`)
-- Slack Webhook URLs
-- JWT Tokens (Base64-encoded JSON Web Tokens)
-- RSA Private Keys
-- SSH Private Keys
-- Generic credential patterns
+Installation, package downloads and application-provided callbacks are separate from the capture library's local behavior. A custom `on_crash` callback can send data if the application implements that behavior.
 
-### 3. Entropy Detection (opt-in)
+## Capture is diagnostics, not isolation
 
-When enabled, high-entropy strings (random-looking values like API
-keys that don't match known patterns) are redacted based on Shannon
-entropy. This detects novel secrets that the denylist and regex
-patterns miss.
+The library runs inside the application process. It is not a sandbox for hostile objects, an encryption system or a collector for native core dumps. It attempts to preserve useful context while limiting expansion and handling capture failures; applications must still handle a missing report or failed destination.
 
-## File Permissions
+## Before sharing
 
-- Report files: `0o600` (owner read/write only)
-- Output directory: `0o700` (owner access only)
+1. Choose the least detail needed and capture a synthetic reproduction when possible.
+2. Inspect source lines, exception text, locals/globals, paths, environment and thread information.
+3. Check the `redactions` records, then review the remaining values independently.
+4. Share through an appropriately restricted channel and retain only what is needed.
 
-## Redaction Audit Trail
-
-Every redaction is recorded in the report's `redactions` array:
-
-```json
-{
-    "redactions": [
-        {
-            "location": "frames[0].locals.password",
-            "reason": "matched pattern: ghp_[0-9a-zA-Z]{36}",
-            "rule": "secret_pattern",
-            "timestamp": "2026-07-30T12:00:00"
-        }
-    ]
-}
-```
-
-This makes it clear what was redacted and why.
-
-## Privacy Tiers
-
-| Tier | Description | Captures |
-|---|---|---|
-| 0 | Minimal | Exception type, message, crash site |
-| 1 | Default | + local variable values (short) |
-| 2 | Verbose | + longer values, more collection items |
-| 3 | Debug | + environment details |
-| 4 | Full | + env variable names, argv |
-
-## Best Practices
-
-1. Always review crash reports before sharing publicly.
-2. Use `configure(preset="production")` in production environments.
-3. Enable entropy detection for defense-in-depth:
-   `configure(enable_entropy_detection=True)`
-4. Consider enabling compression for storage efficiency:
-   `configure(compress=True)`
+For vulnerabilities, follow [the private reporting policy](https://github.com/Muneer320/safedump/blob/main/SECURITY.md); do not attach sensitive crash reports to public issues.

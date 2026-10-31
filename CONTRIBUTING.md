@@ -69,18 +69,19 @@ See [docs/architecture.md](docs/architecture.md) for the full design.
 
 All internal modules use the `_` prefix (Python convention for private). Contributors are welcome to modify these modules. Only `__init__.py` exports are the stable public API.
 
-| Module | Purpose | Owner |
-|---|---|---|
-| `__init__.py` | Public API surface | Architect |
-| `_types.py` | Data classes, constants, denylist | Architect |
-| `_config.py` | Configuration validation | Architect |
-| `_capture.py` | Frame walking, hook management | Senior Engineer |
-| `_sanitize.py` | Secret redaction | Security Engineer |
-| `_serialize.py` | JSON serialization | Senior Engineer |
-| `_storage.py` | Atomic file I/O | Senior Engineer |
-| `_loader.py` | Report loading | Senior Engineer |
-| `_render.py` | Rich terminal output | Senior Engineer |
-| `_cli.py` | CLI entry point | Senior Engineer |
+| Module | Purpose |
+|---|---|
+| `__init__.py` | Stable public API surface |
+| `_types.py` | Data classes, constants, denylist |
+| `_config.py` | Configuration validation |
+| `_capture.py` | Exception hooks and capture orchestration |
+| `_frame_walker.py` | Frame, namespace and environment snapshots |
+| `_sanitize.py` | Secret redaction |
+| `_serialize.py` | JSON serialization |
+| `_storage.py` | Atomic file I/O |
+| `_loader.py` | Report loading |
+| `_render.py` | Rich terminal output |
+| `_cli.py` | CLI entry point |
 
 ## Pull Request Process
 
